@@ -1,0 +1,50 @@
+---
+title: "Text fields"
+description: "Labels, helper text, validation, and search fields."
+order: 3
+---
+
+
+# Text fields
+
+## Anatomy
+
+A field is label + input + one supporting slot. The slot is either a
+description (idle) or a validation message (error), never both at once.
+
+<Demo>
+  <DemoStage name="fields" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - Labels are always visible; placeholder text is an example, not the label.
+  - Validate on blur or submit, not on every keystroke.
+  - Errors say what to do, not just what failed (“Enter a valid host name”,
+    not “Invalid input”).
+  - Search fields use the magnifier icon and a clear affordance; they never
+    trigger destructive actions on Enter.
+</Checklist>
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[0.85rem] font-medium text-text">Mirror</label>
+        <div className="flex h-9 items-center rounded-lg border border-danger bg-surface px-3 text-[0.875rem] text-text-muted">mirror.parchlinx.com</div>
+        <p className="text-[0.78rem] text-danger">Unknown host, check the spelling of the mirror.</p>
+      </div>
+    ),
+    caption: "Visible label, specific recovery message.",
+  }}
+  dont={{
+    children: (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex h-9 items-center rounded-lg border border-danger bg-surface px-3 text-[0.875rem] text-text-muted">mirror.parchlinx.com</div>
+        <p className="text-[0.78rem] text-danger">Error 22</p>
+      </div>
+    ),
+    caption: "Floating placeholder as label, code-only error.",
+  }}
+/>

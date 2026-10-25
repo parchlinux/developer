@@ -1,0 +1,31 @@
+---
+title: "Search & filtering"
+description: "Search placement, scope, and filter behavior."
+order: 17
+---
+
+# Search & filtering
+
+## Placement
+
+- Catalog apps (Store, package info) put search in the toolbar, start of the
+  content column, with a clear affordance.
+- Searchable settings expose a search field in the window, matching row
+  titles and descriptions.
+- Documentation search is global and keyboard-first (<kbd>Ctrl</kbd>+<kbd>K</kbd>).
+
+## Behavior
+
+<Checklist>
+  - Search filters as you type with at most ~120ms debounce; nothing network
+    -bound runs per keystroke.
+  - Empty results are a designed empty state with a “clear search” action.
+  - Scope is visible: what is being searched (All packages / Installed /
+    This section) is stated next to the field.
+  - Filters compose with search and are visible when active (chips), with
+    one obvious way to reset everything.
+  - A search that navigates (documentation) highlights matches in results.
+</Checklist>
+
+See the Store mock for catalog search and the portal's own search
+(<kbd>Ctrl</kbd>+<kbd>K</kbd>) for the documentation pattern.

@@ -1,0 +1,56 @@
+---
+title: "Human Interface Guidelines"
+description: "How Parch applications should look, behave, and integrate, from visual foundations to platform integration."
+index: true
+order: 0
+---
+
+# Human Interface Guidelines
+
+The Parch HIG defines how applications look, behave, and integrate with Parch
+GNU/Linux. It exists so that software from different authors, in different
+toolkits, still feels like one operating system.
+
+## How to use the HIG
+
+<Checklist>
+  - Start with [Design philosophy](/hig/philosophy/), five principles that
+    resolve most design debates.
+  - Build with the [Design System](/design/), which implements these rules
+    as working components.
+  - Follow the toolkit mapping in [Platform integration](/hig/platform-integration/)
+    when your app uses GTK or Qt, the HIG defines intent; your toolkit
+    supplies native widgetry.
+  - Persian and English are first-class: read [RTL and Persian](/hig/rtl-and-persian/)
+    before your first layout, not after your first bug report.
+</Checklist>
+
+## Sections
+
+<CardGrid cols={2}>
+  <Card title="Design foundations" href="/hig/philosophy/">
+    Philosophy, visual identity, color, typography, layout, materials,
+    iconography, motion, themes, RTL, accessibility, and density.
+  </Card>
+  <Card title="Application structure" href="/hig/windows/">
+    Windows, header bars, navigation patterns, dialogs, forms, states,
+    collections, and destructive actions.
+  </Card>
+  <Card title="Interaction design" href="/hig/keyboard/">
+    Keyboard and pointer interaction, shortcuts, progress, error recovery,
+    unsaved changes, and offline behavior.
+  </Card>
+  <Card title="Platform integration" href="/hig/platform-integration/">
+    KDE Plasma and GTK integration, system themes, Wayland, desktop files,
+    notifications, and file associations.
+  </Card>
+</CardGrid>
+
+## Scope
+
+The HIG binds first-party Parch applications and sets expectations for
+third-party software in the Parch repositories. It does not force every app
+to look identical: a KDE Plasma utility should use Plasma patterns, a
+libadwaita app should use GNOME patterns, mapped onto the shared intent
+defined here. Where a Parch rule deliberately differs from a toolkit default,
+we say so explicitly on the relevant page.

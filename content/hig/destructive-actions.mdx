@@ -1,0 +1,39 @@
+---
+title: "Destructive actions"
+description: "How Parch handles removal, overwriting, and irreversible operations."
+order: 18
+---
+
+# Destructive actions
+
+## The sequence
+
+1. **Entry point stays calm.** The action trigger is a normal button or menu
+   item labeled clearly (“Remove…”, with the ellipsis signaling more to come).
+2. **Confirmation dialog states consequences**, what will be removed, how
+   much (size, count), and what is recoverable.
+3. **The destructive styling appears here**, on the confirming action.
+4. **Completion feedback**, toast confirming what happened, with undo where
+   technically possible.
+
+<Callout kind="important" title="Undo beats confirmation">
+  If an action can be undone cheaply (move to trash, disable rather than
+  delete), prefer a small undo window over a modal dialog.
+</Callout>
+
+## Rules
+
+<Checklist>
+  - Confirm only genuinely destructive operations; over-confirming trains
+    users to click through.
+  - Type-to-confirm is reserved for catastrophic, rare operations (wiping a
+    disk).
+  - Menus place destructive items away from frequent ones and separate them
+    with a divider.
+  - Keyboard default in a destructive dialog is Cancel, never the destructive
+    action.
+  - Package removal always lists dependency removals, from the package
+    manager, not approximated.
+</Checklist>
+
+Interactive demo: [Dialogs in the design system](/design/dialogs/).

@@ -1,0 +1,70 @@
+---
+title: "Persian support"
+description: "Fonts, locales, input methods, and RTL support in the platform."
+order: 5
+---
+
+# Persian support
+
+Persian support is a design goal of Parch, not a localization afterthought.
+This page describes the platform pieces; application-level rules are in
+[RTL & Persian](/hig/rtl-and-persian/), and translation workflow is in
+[Localization](/localization/).
+
+## Fonts
+
+Parch ships Estedad as its Persian UI typeface and maintains Persian font
+packaging:
+
+- `parch-persian-fonts` (world) pulls in the Parch font set.
+- `arad-fonts` (world) carries additional Persian display fonts.
+- `vazirmatn` is available from Arch repositories for compatibility.
+
+Applications must not hardcode a specific Persian font; use the generic
+stack (`Saira, Estedad, sans-serif`) so system font choices and future
+font packages keep working. Font packaging conventions are in
+[Packaging](/packaging/naming-versioning/).
+
+## Locale
+
+The installer defaults target `fa_IR.UTF-8` with the `Asia/Tehran` timezone,
+while keeping `en_US.UTF-8` generated as the universal fallback. In ISO
+profiles, the pacman hook `40-locale-gen.hook` regenerates locales at
+build/install time; uncommenting locales happens in the airootfs
+(see [airootfs customization](/iso/airootfs-customization/)).
+
+Inspect the current state on a running system:
+
+```bash
+$ locale
+$ localectl list-locales | grep fa
+$ timedatectl show -p Timezone
+```
+
+## Input methods
+
+Persian keyboard layouts ship with the desktop environments: Plasma and
+GNOME include `fa` layouts natively, selectable in their keyboard settings.
+Layout switching shortcuts work on both Latin and Persian layouts because
+shortcut matching is positional, not character-based (a HIG requirement, see
+[Keyboard interaction](/hig/keyboard/)).
+
+For complex input (Arabic-script shaping is handled by the text stack
+directly; no IME is needed for Persian), nothing extra is required. Users
+of other languages can add IBus or Fcitx5 from the standard repositories.
+
+## RTL in the platform
+
+- Desktop environments mirror their shells automatically with a `fa` locale.
+- Parch theming packages are tested with RTL: SDDM, GRUB (text labels), and
+  Plymouth are asymmetric surfaces where RTL regressions hide.
+- Installers: the Parch Calamares flavor defaults to Persian, so the
+  first-boot experience of a fa_IR install is fully RTL.
+
+## Testing checklist
+
+1. Install with the `fa` locale; confirm installer, SDDM, and desktop are
+   RTL and Persian-rendered.
+2. Add a second language (English) and switch back and forth per-app.
+3. Check mixed-direction text: package names inside Persian sentences.
+4. Verify Persian date/number display in the components you own.

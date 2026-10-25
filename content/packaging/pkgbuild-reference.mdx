@@ -1,0 +1,179 @@
+---
+title: "PKGBUILD reference"
+description: "Every PKGBUILD variable, the four build functions, checksum arrays, source renaming, and a complete example for a Rust CLI application."
+order: 1
+source: "ch. 34, 51"
+---
+
+# PKGBUILD reference
+
+A PKGBUILD is a shell script that `makepkg` executes to produce a package. It contains metadata variables, integrity arrays, and up to four functions. This page is the complete reference for the format; the [example packages](/packaging/example-packages/) page shows four fully worked PKGBUILDs and the [command reference](/reference/) covers the tools around them.
+
+## Required variables
+
+| Variable | Example | Meaning |
+| --- | --- | --- |
+| `pkgname` | `parch-example` | Package name: lowercase letters, digits, hyphens. See [naming and versioning](/packaging/naming-versioning/). |
+| `pkgver` | `1.4.2` | Upstream version. Must not contain spaces, hyphens, or colons. |
+| `pkgrel` | `1` | Your package release number. Reset to `1` on every `pkgver` bump, increment on PKGBUILD-only changes. |
+| `pkgdesc` | `"Example CLI todo manager"` | One-line description shown by `pacman -Si` and search tools. |
+| `arch` | `('x86_64')` | Architectures the package builds for. Use `('any')` for architecture-independent content. |
+
+## Optional metadata variables
+
+| Variable | Example | Meaning |
+| --- | --- | --- |
+| `epoch` | `1` | Integer that forces the version to compare newer than any without it. Only for broken upstream versioning schemes. |
+| `url` | `"https://github.com/parchlinux/example"` | Project homepage. |
+| `license` | `('MIT')` | SPDX license identifiers. Use `custom` plus a `custom:` qualifier for nonstandard licenses. |
+| `groups` | `('parch-apps')` | Package groups the package belongs to. |
+| `changelog` | `"${pkgname}.changelog"` | Optional changelog file shipped with the package. |
+
+## Dependency variables
+
+| Variable | Needed at | Notes |
+| --- | --- | --- |
+| `depends` | Runtime and build | Everything the built software links against or calls at runtime. |
+| `makedepends` | Build only | Compilers, build systems, headers. Not needed after the build. |
+| `checkdepends` | `check()` only | Test frameworks used only by the test suite. |
+| `optdepends` | Optional runtime | One string per entry: `"libpulse: audio backend support"`. |
+
+Declare what the software actually uses, no more and no less. Virtual dependencies are expressed with the `provides` array of the supplying package, not by guessing names.
+
+## Relationship variables
+
+| Variable | Example | Meaning |
+| --- | --- | --- |
+| `provides` | `('libexample.so=3-64')` | Names this package supplies to satisfy other packages' dependencies. |
+| `conflicts` | `('example-bin')` | Packages that cannot be installed at the same time. Implies a conflict both ways. |
+| `replaces` | `('example-old')` | Packages this one supersedes; pacman offers to remove them on upgrade. Use sparingly. |
+| `backup` | `('etc/example/example.conf')` | Files pacman preserves as `.pacnew`/`.pacsave` instead of overwriting. |
+
+## Source and integrity variables
+
+| Variable | Example | Meaning |
+| --- | --- | --- |
+| `source` | see below | Array of remote URLs, VCS URLs, and local files. |
+| `noextract` | `('huge-archive.tar.gz')` | Sources to download and verify but not extract (useful when an archive must stay packaged as-is). |
+| `validpgpkeys` | `('A1B2...')` | Full-length fingerprints accepted for detached source signatures. |
+| `options` | `('!strip' 'docs')` | Build behavior toggles: `strip`, `docs`, `libtool`, `staticlibs`, `emptydirs`, `zipman`, `debug`, `lto`, `makeflags`. Prefix with `!` to disable. |
+| `install` | `"${pkgname}.install"` | Pacman hook script shipped alongside the package. |
+
+Sources that need a different local filename use the `name::url` renaming syntax, which also pins a stable name when upstream archives lack version numbers:
+
+<CodeBlock title="Source array with renaming">
+
+```bash
+source=(
+  "${pkgname}-${pkgver}.tar.gz::https://github.com/parchlinux/example/archive/refs/tags/v${pkgver}.tar.gz"
+  "example.desktop::assets/example.desktop.in"
+  "fix-build.patch"
+)
+```
+
+</CodeBlock>
+
+## Integrity arrays
+
+Use `sha256sums` as the default. Use `b2sums` where a stronger digest is wanted. `SKIP` is only valid for VCS sources such as `git+https://...`, where the git object itself is the integrity guarantee. Never append checksums: replace them with `updpkgsums`, or print them with `makepkg -g` and edit them into the file.
+
+<CodeBlock title="Generate or update checksums">
+
+```bash
+$ updpkgsums                 # rewrites the integrity arrays in place
+$ makepkg -g                 # prints them, for review or manual editing
+```
+
+</CodeBlock>
+
+## The four functions
+
+| Function | Runs when | Typical content |
+| --- | --- | --- |
+| `prepare()` | After extraction | `patch -Np1 -i ...`, `git apply`, environment fixes. Start with `cd` into the source dir. |
+| `build()` | After prepare | Configure and compile. May be empty or omitted for data-only packages. |
+| `check()` | After build, only with `makepkg --check` | Run the upstream test suite. |
+| `package()` | Always, once per split package | Copy the results into `pkgdir`. Required for every package. |
+
+Both `srcdir/` (extracted sources) and `pkgdir/` (the package root) are available in all four. `package()` must never touch the host system: it only writes under `pkgdir`, usually with `install` (`-Dm755`, `-Dm644`, `-Dt`) rather than `cp`.
+
+## Complete example: a Rust CLI
+
+A small command-line application built from source with cargo. The values are illustrative for the packaging shape, checksums must always be generated from the real sources with `updpkgsums`.
+
+<CodeBlock title="PKGBUILD for a Rust CLI application">
+
+```bash
+# Maintainer: Parch Developers <contact@parchlinux.com>
+# Contributor: Your Name <you@example.com>
+
+pkgname=example-todo
+pkgver=1.4.2
+pkgrel=1
+pkgdesc="Command-line todo manager for the terminal"
+arch=('x86_64')
+url="https://github.com/parchlinux/example-todo"
+license=('MIT')
+depends=('glibc' 'gcc-libs')
+makedepends=('cargo')
+checkdepends=()
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/parchlinux/example-todo/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('0f3c9a2b4e6d1a8c7f5e0b3d9a4c8e2f6b1d7a5c9e3f8b2d6a4c1e7f3b9d5a2c')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release --all-features
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  install -Dm755 -t "${pkgdir}/usr/bin" "target/release/${pkgname#example-}"
+  install -Dm644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+```
+
+</CodeBlock>
+
+<Callout kind="note" title="Split packages">
+  When one source builds several packages, add `pkgbase` and name each output
+  in `pkgname=()`, then write one `package_<name>()` function per output. See
+  the library example on the [example packages](/packaging/example-packages/)
+  page.
+</Callout>
+
+## Validation
+
+From the package directory, as an unprivileged user:
+
+<CodeBlock title="Three checks before any build">
+
+```bash
+$ bash -n PKGBUILD                                  # shell syntax check
+$ makepkg --printsrcinfo > .SRCINFO                 # metadata must generate cleanly
+$ namcap PKGBUILD                                   # policy lint
+```
+
+</CodeBlock>
+
+`namcap` output uses `W:` for warnings and `E:` for errors. Fix errors, evaluate each warning, and repeat after the build with the package file itself. The full pre-submission sequence is on the [testing and validation](/packaging/testing-validation/) page.
+
+## Related pages
+
+- [Building packages](/packaging/building-packages/): makepkg flags, chroot builds, signing.
+- [Example packages](/packaging/example-packages/): four complete PKGBUILDs to copy from.
+- [Submission](/packaging/submission/): what to send and where.

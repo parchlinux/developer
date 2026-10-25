@@ -1,0 +1,177 @@
+---
+title: "Testing an ISO"
+description: "Test a built Parch ISO in QEMU/KVM on both firmwares, on real hardware, and through a full Calamares install, plus how to debug boot failures."
+order: 10
+source: "ch. 17, 19, 26, 28"
+---
+
+# Testing an ISO
+
+An ISO that builds is not an ISO that works. This page is the test plan: virtual machines first (fast, safe, both firmwares), then a full installer run, then real hardware, and, when something fails, the tools to find out why.
+
+## QEMU/KVM, the fast loop
+
+Install the tooling on the build host once (from [Build your first ISO](/iso/build-first-iso/)):
+
+```bash
+$ sudo pacman -S --needed qemu-desktop edk2-ovmf
+```
+
+Work in the profile repository root, with `out/` holding your freshly built image.
+
+### BIOS firmware (Syslinux path)
+
+<CodeBlock title="BIOS boot test">
+
+```bash
+$ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+    -cdrom out/*.iso -boot d
+```
+
+</CodeBlock>
+
+Expect the Syslinux menu, then the live session. This exercises the `bios.syslinux.mbr` path of the ISOHYBRID image.
+
+### UEFI firmware (systemd-boot path)
+
+<CodeBlock title="UEFI boot test with OVMF">
+
+```bash
+$ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+    -bios /usr/share/edk2/x64/OVMF_CODE.4M.fd \
+    -cdrom out/*.iso -boot d
+```
+
+</CodeBlock>
+
+Expect the systemd-boot menu, then the live session. This exercises both `uefi-x64.systemd-boot.*` bootmodes. If the same image passes BIOS and fails here (or vice versa), the problem is in that bootloader's configuration, see [Bootloader configuration](/iso/bootloader-config/).
+
+### Useful variations
+
+- **Emulate the USB-disk boot path** instead of optical:
+
+  <CodeBlock title="Boot the image as a disk">
+
+  ```bash
+  $ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+      -drive file=out/*.iso,format=raw
+  ```
+
+  </CodeBlock>
+- **Serial console**, invaluable when the display path is what you suspect. Add `-nographic` (console goes to your terminal), and use a boot entry with `console=ttyS0` added via the systemd-boot editor.
+- **Give the test disk something to install onto** (for installer tests below): add `-drive file=testdisk.img,format=raw,if=virtio,size=32G` after creating the file with `qemu-img create -f raw testdisk.img 32G`.
+
+## virt-manager
+
+If you prefer a GUI: create a new VM, choose "Local install media", point it at `out/*.iso`, give it 4 GB RAM / 4 CPUs / a 32 GB disk, and under **Firmware** pick UEFI (`OVMF_CODE.4M.fd`) or BIOS SeaBIOS to select the firmware per test run. virt-manager is just QEMU/KVM underneath, so results transfer; it is also the easiest way to keep several test VMs (one per edition) around.
+
+## Real hardware boot test
+
+Emulators do not catch firmware quirks, and UEFI implementations disagree with each other in creative ways. Before any release, boot the image on real machines:
+
+<Checklist>
+  <p>A **BIOS-era machine** (or at least an USB-disk boot through legacy CSM) reaches the Syslinux menu and the live session.</p>
+  <p>A **UEFI machine with Secure Boot disabled** reaches the systemd-boot menu and the live session.</p>
+  <p>The same USB stick boots on **both**, write once with `dd`, test twice (this validates the ISOHYBRID layout).</p>
+  <p>Networking comes up on real Wi-Fi hardware, not just virtual NICs (this is where driver/firmware gaps like `broadcom-wl` show up).</p>
+  <p>Sound output works (the livecd-sound scripts unmute, but real codecs vary).</p>
+  <p>The compatibility boot entry (`nomodeset`) gets a problematic machine to a working display.</p>
+</Checklist>
+
+Writing the stick (careful: `of=` is destroyed):
+
+```bash
+$ sudo dd if=out/*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+```
+
+## Installer test checklist
+
+The install path is the product. Run it at least once per build you intend to share, inside a VM with a scratch disk:
+
+<Steps>
+  <Step title="Boot and pre-flight">
+    Boot the ISO (both firmwares over successive runs). Confirm the live session autologins, `ping -c3 archlinux.org` works, and Calamares opens (or `sudo calamares -d` from a terminal to watch it).
+  </Step>
+  <Step title="Erase-disk install">
+    Walk Calamares: locale page shows the Parch defaults (`fa_IR`, `Asia/Tehran`) but accepts other choices; partition page offers erase-disk with the expected filesystems; users page creates a user in `wheel` with hostname defaulting to `parch`; summary lists the plan before anything happens.
+  </Step>
+  <Step title="Watch the exec phase">
+    Let it run to the finished page without intervening. A failure here is logged, see [Calamares installer](/iso/calamares-installer/) for the log locations and patterns.
+  </Step>
+  <Step title="Reboot without the medium">
+    Remove the ISO from the VM (or uncheck the boot device) and reboot. The installed system must reach its display manager with the user you created.
+  </Step>
+</Steps>
+
+## Post-install validation
+
+Inside the freshly installed system:
+
+<Checklist>
+  <p>The ESP is mounted at `/boot` and sized 512 MiB (`findmnt /boot`, `lsblk`).</p>
+  <p>The user is in `wheel` (`groups`), and `sudo pacman -Syu` works, the installed system inherited a sane pacman configuration.</p>
+  <p>`systemctl is-enabled sddm` (or the edition's DM) says enabled; networking is up.</p>
+  <p>Desktop defaults from `/etc/skel` are present in the user's home (theme, panel, wallpaper).</p>
+  <p>Live-only artifacts are gone: no autologin, no `archiso` package (`pacman -Q archiso` fails), no live-only pacman hooks (`ls /etc/pacman.d/hooks/`).</p>
+  <p>The boot entry name in the firmware/GRUB menu reads as the Parch branding from `branding.desc`.</p>
+</Checklist>
+
+## Debugging boot failures
+
+When the VM hangs or drops to a shell, work outward from the bootloader.
+
+**1. Read what is on screen.** The emergency shell of the initramfs prints why the root could not be found. The classic causes: `archisolabel` mismatch (label edited without a rebuild), `archisobasedir` wrong, or the initramfs missing the `archiso` hooks.
+
+**2. Edit the kernel line at the menu.** systemd-boot: press `E` on the highlighted entry. Useful additions for one boot:
+
+```text
+loglevel=7                    # maximum kernel verbosity
+systemd.debug_shell=1         # root shell on tty9 (Ctrl+Alt+F9), even if boot stalls
+console=ttyS0                 # for serial QEMU (-nographic)
+```
+
+Runtime edits are per-boot only, permanent changes belong in the profile's boot configuration.
+
+**3. Enter the debug shell.** With `systemd.debug_shell=1`, switch to tty9 for a root shell regardless of how far userspace got; combined with `systemctl status`/`journalctl` this isolates whether the failure is in early userspace or the live system's services.
+
+**4. Boot the fallback entries.** The compatibility entry (`nomodeset`) separates graphics problems from boot problems; the `copytoram` entry separates slow/faulty media from root-mount problems (it also needs enough RAM).
+
+**5. Inspect what was actually built.** Mount the ISO and unpack the squashfs on the host, the ground truth of the build:
+
+<CodeBlock title="Inspect the built image contents">
+
+```bash
+$ sudo mount -o loop out/*.iso /mnt/iso
+$ ls /mnt/iso/arch/x86_64/          # airootfs.sfs lives here
+$ sudo unsquashfs -d /tmp/airootfs /mnt/iso/arch/x86_64/airootfs.sfs
+$ ls /tmp/airootfs/usr/local/bin/   # your scripts, with real permissions
+$ ls -l /tmp/airootfs/etc/sddm.conf.d/
+$ sudo umount /mnt/iso && sudo rm -rf /tmp/airootfs
+```
+
+</CodeBlock>
+
+If a file you expected is missing or non-executable here, the bug is in the profile (overlay path or `file_permissions`), not in the boot. If it is present and correct here but missing in the live system, the bug is in the boot path or initramfs.
+
+**6. Keep the failure reproducible.** Note the exact QEMU command, firmware, boot entry, and the last on-screen lines. A report with those four things is actionable; "it does not boot" is not.
+
+## Expected results
+
+- The same ISO boots via Syslinux (BIOS), systemd-boot (UEFI), and as a USB-style disk image.
+- A full Calamares erase-disk install followed by media-free reboot lands in the installed desktop.
+- Every failure mode above produces a named, searchable cause in the log, not a silent hang.
+
+## Troubleshooting
+
+- **QEMU rejects `-bios ...OVMF_CODE.4M.fd`**, the file is missing; reinstall `edk2-ovmf`, or use the `edk2-x86_64-code.fd` in the same directory.
+- **UEFI test boots to the OVMF firmware shell**, the ISO's ESP content is missing; verify `bootmodes` includes the two `uefi-x64.systemd-boot.*` entries and rebuild.
+- **Extremely slow boot in QEMU**, KVM is not active; confirm `-enable-kvm` and that the host loaded `kvm_intel`/`kvm_amd`.
+- **Live session boots but has no network**, the networkd profiles do not match the (virtual) interface name; check `ip link` in the VM against `airootfs/etc/systemd/network/` Match sections (see [airootfs customization](/iso/airootfs-customization/)).
+- **Installer fails at partitioning in the VM**, you attached no scratch disk, or the scratch disk image is smaller than the `requiredStorage` value on the welcome page.
+
+## Related pages
+
+- [Build your first ISO](/iso/build-first-iso/), where these QEMU commands were introduced.
+- [Calamares installer](/iso/calamares-installer/), installer internals and logs.
+- [Bootloader configuration](/iso/bootloader-config/), the entries you are editing at the menu.
+- [Release automation](/iso/release-automation/), CI builds the same artifact this page tests.

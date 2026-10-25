@@ -1,0 +1,439 @@
+---
+title: "GTK apps in Python"
+description: "Build a complete GTK4 and libadwaita application in Python, from an empty directory to a running, translatable, packageable app."
+order: 2
+source: "ch. 54"
+---
+
+# GTK apps in Python
+
+This tutorial builds **Parch Notes**, a small notes window in GTK4 and
+libadwaita, using PyGObject. It is the same stack as PKM
+(parch-kernel-manager), the real Parch kernel manager: Python 3.9+, GTK4,
+libadwaita, and a plain Python entry point. By the end you will have a
+window with a header bar, toasts, a settings dialog, JSON persistence, a
+desktop entry, and a packaging path.
+
+<Callout kind="tip" title="Why Python for a first GTK app">
+  PyGObject keeps the loop short: edit, save, relaunch. The idioms transfer
+  directly to Rust (the parch-welcome stack, see
+  [Rust apps](/app-dev/rust-apps/)) and to C. If you are porting an
+  existing codebase rather than starting one, read
+  [choosing a toolkit](/app-dev/toolkit-guide/) first.
+</Callout>
+
+## Prerequisites
+
+- A Parch or Arch-based system (any edition works, GNOME is the native home).
+- Working directory: `~/devel`, user privileges except where `sudo` is shown.
+
+```bash
+$ sudo pacman -S --needed python gtk4 libadwaita python-gobject
+$ python3 -c "import gi; gi.require_version('Adw', '1'); print('ok')"
+```
+
+The second command must print `ok` before you continue.
+
+## 1. Create the project skeleton
+
+```bash
+$ mkdir -p parch-notes/parch_notes parch-notes/data
+$ cd parch-notes
+$ touch parch_notes/__init__.py
+```
+
+The layout:
+
+```text
+parch-notes/
+├── parch_notes/
+│   ├── __init__.py
+│   ├── main.py        # Adw.Application
+│   ├── window.py      # main window, notes, persistence
+│   └── prefs.py       # preferences window
+├── data/
+│   └── parch-notes.desktop
+└── pyproject.toml
+```
+
+## 2. Describe the project
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "parch-notes"
+version = "0.1.0"
+description = "A small notes app for Parch"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+parch-notes = "parch_notes.main:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+```
+
+`dependencies` is empty on purpose: PyGObject comes from the system
+`python-gobject` package, not from pip. The PKGBUILD carries the real
+runtime dependencies.
+
+## 3. The application object
+
+`parch_notes/main.py`:
+
+```python
+import sys
+
+import gi
+
+gi.require_version("Adw", "1")
+from gi.repository import Adw
+
+from .window import NotesWindow
+
+
+class NotesApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id="ir.parchlinux.Notes")
+
+    def do_activate(self):
+        win = NotesWindow(application=self)
+        win.present()
+
+
+def main():
+    app = NotesApp()
+    return app.run(sys.argv)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+The application id is a reverse-DNS name, `ir.parchlinux.Notes` here. It
+becomes your Wayland app id, so pick it once and keep it (see
+[desktop integration](/app-dev/desktop-integration/)).
+
+## 4. The main window
+
+`parch_notes/window.py`:
+
+```python
+import datetime
+import json
+from pathlib import Path
+
+import gi
+
+gi.require_version("Adw", "1")
+from gi.repository import Adw, GLib, Gtk
+
+from .prefs import PrefsWindow
+
+CONFIG_PATH = Path(GLib.get_user_config_dir()) / "parch-notes" / "settings.json"
+NOTES_PATH = Path(GLib.get_user_config_dir()) / "parch-notes" / "notes.txt"
+
+
+class NotesWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("Parch Notes")
+        self.set_default_size(520, 420)
+        self.settings = self._load_settings()
+
+        self.overlay = Adw.ToastOverlay()
+        self.set_content(self.overlay)
+
+        self.view = Adw.ToolbarView()
+        self.overlay.set_child(self.view)
+
+        header = Adw.HeaderBar()
+        self.view.set_top_bar(header)
+
+        prefs_button = Gtk.MenuButton()
+        prefs_button.set_icon_name("emblem-system-symbolic")
+        prefs_button.set_tooltip_text("Preferences")
+        prefs_button.connect("clicked", self.on_prefs_clicked)
+        header.pack_end(prefs_button)
+
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                       margin_top=12, margin_bottom=12,
+                       margin_start=12, margin_end=12)
+        self.view.set_content(page)
+
+        self.entry = Gtk.Entry(hexpand=True)
+        self.entry.set_placeholder_text("Write a note and press Add")
+        self.entry.connect("activate", self.on_add_clicked)
+
+        add_button = Gtk.Button(label="Add")
+        add_button.add_css_class("suggested-action")
+        add_button.connect("clicked", self.on_add_clicked)
+
+        input_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        input_row.append(self.entry)
+        input_row.append(add_button)
+        page.append(input_row)
+
+        self.list_box = Gtk.ListBox()
+        self.list_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_child(self.list_box)
+        scroll.set_vexpand(True)
+        page.append(scroll)
+
+        self._notes = ""
+        self._load_notes()
+
+    # --- settings ---------------------------------------------------
+
+    def _load_settings(self):
+        settings = {"timestamps": True}
+        if CONFIG_PATH.exists():
+            try:
+                settings.update(
+                    json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
+            except json.JSONDecodeError:
+                pass
+        return settings
+
+    def _save_settings(self):
+        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(
+            json.dumps(self.settings, ensure_ascii=False, indent=2),
+            encoding="utf-8")
+
+    # --- notes ------------------------------------------------------
+
+    def _load_notes(self):
+        if NOTES_PATH.exists():
+            self._notes = NOTES_PATH.read_text(encoding="utf-8")
+        for line in self._notes.splitlines():
+            if line:
+                self.list_box.append(self._make_row(line))
+
+    def _make_row(self, line):
+        row = Adw.ActionRow(title=line)
+        remove = Gtk.Button(icon_name="user-trash-symbolic")
+        remove.add_css_class("flat")
+        remove.set_valign(Gtk.Align.CENTER)
+        remove.connect("clicked", self.on_remove_clicked, row)
+        row.add_suffix(remove)
+        return row
+
+    def _save_notes(self):
+        NOTES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        NOTES_PATH.write_text(self._notes, encoding="utf-8")
+
+    # --- callbacks ----------------------------------------------------
+
+    def _toast(self, text):
+        toast = Adw.Toast(title=text, timeout=3)
+        self.overlay.add_toast(toast)
+
+    def on_prefs_clicked(self, _button):
+        prefs = PrefsWindow(self.settings, on_change=self._save_settings)
+        prefs.present()
+
+    def on_add_clicked(self, _widget):
+        text = self.entry.get_text().strip()
+        if not text:
+            self._toast("Nothing to add")
+            return
+        if self.settings.get("timestamps", True):
+            stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+            text = f"{stamp}  {text}"
+        self.list_box.append(self._make_row(text))
+        self._notes += text + "\n"
+        self._save_notes()
+        self.entry.set_text("")
+        self._toast("Note added")
+
+    def on_remove_clicked(self, _button, row):
+        self.list_box.remove(row)
+        self._notes = "".join(
+            row.get_title() + "\n"
+            for row in self._rows())
+        self._save_notes()
+        self._toast("Note removed")
+
+    def _rows(self):
+        child = self.list_box.get_first_child()
+        while child is not None:
+            if isinstance(child, Adw.ActionRow):
+                yield child
+            child = child.get_next_sibling()
+```
+
+The important idioms: `Adw.ToolbarView` holds the `Adw.HeaderBar` and the
+content, `Adw.ToastOverlay.add_toast()` shows transient feedback, and
+persistence lives in `GLib.get_user_config_dir()` so it follows the XDG
+rules on every user's machine.
+
+## 5. The preferences window
+
+`parch_notes/prefs.py`:
+
+```python
+import gi
+
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk
+
+
+class PrefsWindow(Adw.PreferencesWindow):
+    def __init__(self, settings, on_change=None, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("Preferences")
+        self.settings = settings
+        self.on_change = on_change
+
+        page = Adw.PreferencesPage()
+        self.add(page)
+
+        group = Adw.PreferencesGroup(
+            title="General", description="How new notes are written")
+        page.add(group)
+
+        switch = Gtk.Switch(valign=Gtk.Align.CENTER)
+        switch.set_active(self.settings.get("timestamps", True))
+        switch.connect("state-set", self.on_timestamps_changed)
+
+        row = Adw.ActionRow(title="Timestamps",
+                            subtitle="Prefix each note with date and time")
+        row.add_suffix(switch)
+        row.set_activatable_widget(switch)
+        group.add(row)
+
+    def on_timestamps_changed(self, _switch, state):
+        self.settings["timestamps"] = state
+        if self.on_change is not None:
+            self.on_change()
+        return False
+```
+
+`Adw.PreferencesGroup` is the standard libadwaita settings idiom. JSON
+persistence works while the app is uninstalled; an installed app may prefer
+GSettings with a compiled schema, which adds validation and dconf tooling.
+
+## 6. Run it
+
+From the project root, user privileges, two options:
+
+```bash
+$ PYTHONPATH=. python3 -m parch_notes.main
+```
+
+or an editable install in a virtual environment (the PKM workflow):
+
+```bash
+$ python3 -m venv .venv
+$ . .venv/bin/activate
+$ pip install -e .
+$ parch-notes
+```
+
+Expected result: a window titled Parch Notes with an entry field. Typing
+text and pressing Add appends a row, shows the toast "Note added", and
+writes `~/.config/parch-notes/notes.txt`. The gear button opens the
+preferences window and toggling Timestamps rewrites the settings file.
+
+## 7. Desktop entry
+
+`data/parch-notes.desktop`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Parch Notes
+Name[fa]=یادداشت‌های پارچ
+Comment=Write quick notes
+Comment[fa]=یادداشت‌های سریع بنویسید
+Exec=parch-notes
+Icon=parch-notes
+Terminal=false
+Categories=Utility;
+Keywords=notes;یادداشت;
+```
+
+Validate it: `desktop-file-validate data/parch-notes.desktop`. The full
+metadata rules (icons, MIME types, actions) are on
+[HIG desktop files](/hig/desktop-files/) and
+[desktop integration](/app-dev/desktop-integration/).
+
+## 8. Translations
+
+Add a minimal gettext bootstrap in `main.py` before the window is created:
+
+```python
+import gettext
+import locale
+
+locale.setlocale(locale.LC_ALL, "")
+locale.bindtextdomain("parch-notes", "/usr/share/locale")
+locale.textdomain("parch-notes")
+_ = gettext.gettext
+```
+
+Then wrap user-visible literals in `_()` and extract them:
+
+```bash
+$ mkdir -p po
+$ xgettext -L Python -k_ -o po/parch-notes.pot parch_notes/*.py
+$ msginit -l fa_IR -o po/fa.po -i po/parch-notes.pot
+$ msgfmt -c -o parch-notes.mo po/fa.po
+```
+
+The `.mo` file installs to
+`/usr/share/locale/fa/LC_MESSAGES/parch-notes.mo`. Plural rules, Persian
+numerals, RTL testing, and the Persian-at-release requirement are covered in
+[localization](/app-dev/localization/).
+
+## 9. Package it
+
+A compact PKGBUILD for this layout (real submissions follow
+[packaging](/packaging/) review rules):
+
+```bash
+# Maintainer: Your Name <you@example.com>
+pkgname=parch-notes
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A small notes app for Parch"
+arch=('any')
+url="https://github.com/parchlinux/parch-notes"
+license=('GPL-3.0-or-later')
+depends=('python' 'gtk4' 'libadwaita' 'python-gobject')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('SKIP')  # fill with updpkgsums before any real submission
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 data/parch-notes.desktop \
+        "$pkgdir/usr/share/applications/parch-notes.desktop"
+}
+```
+
+`--no-isolation` builds with the system Python environment instead of
+downloading pip packages at build time, which is what distribution
+packaging requires.
+
+## Where to go next
+
+- [Desktop integration](/app-dev/desktop-integration/): icons, portals,
+  notifications, Wayland app ids.
+- [Security practices](/app-dev/security-practices/): if your app needs
+  privileged pacman work like PKM does, the polkit pattern is required
+  reading.
+- [Debugging and profiling](/app-dev/debugging-profiling/): the GTK
+  inspector and Wayland debugging.
+- [HIG](/hig/): window, layout, and RTL rules for the finished UI.

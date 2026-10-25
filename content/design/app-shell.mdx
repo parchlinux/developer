@@ -1,0 +1,48 @@
+---
+title: "App shell"
+description: "Window frames, header bars, settings rows, and lists, the skeleton of a Parch desktop application."
+order: 8
+---
+
+
+# App shell
+
+## Window anatomy
+
+A Parch application window is: header bar (title + window controls), optional
+toolbar, and body. The header bar uses `--surface-2`, the body `--surface`,
+and content areas are separated by 1px `--border` hairlines, not shadows.
+
+```
+┌──────────────────────────────────────────┐
+│ Header bar: icon · Title        – □ ✕    │  ← surface-2
+├──────────────────────────────────────────┤
+│ Toolbar / tabs (optional)                │  ← surface + border-b
+├────────┬─────────────────────────────────┤
+│ Sidebar│ Body                            │  ← border-s separator
+│        │                                 │
+└────────┴─────────────────────────────────┘
+```
+
+## Settings rows
+
+The settings row is the workhorse of preference surfaces: leading icon,
+label + description, trailing control. Rows group under an uppercase group
+title inside a bordered container.
+
+<Demo align="stretch">
+  <DemoStage name="settings-rows" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - Header bars never scroll away; toolbars may.
+  - One action per row; complex per-item actions move into the row's context
+    menu.
+  - Descriptions are optional but recommended for switches and selects.
+  - Group related rows; 3–7 rows per group keeps scanning fast.
+</Checklist>
+
+See the [mock application gallery](/mockups/) for full-window examples of
+these patterns assembled into complete apps.

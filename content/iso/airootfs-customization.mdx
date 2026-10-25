@@ -1,0 +1,195 @@
+---
+title: "airootfs customization"
+description: "The live-system overlay: how airootfs/ works, the real Parch live setup (autologin, networkd, sudoers, pacman hooks, live scripts), and how to add your own."
+order: 6
+source: "ch. 24, 20, 22; live parch-iso-* repositories"
+---
+
+# airootfs customization
+
+`iso/airootfs/` is a miniature Linux root filesystem. During the build it is copied **on top of** the packages installed into the live system, so files here override package defaults and add files no package provides. When the ISO boots, the result *is* the live environment users see.
+
+## How the overlay behaves
+
+The precedence order is simple and strict:
+
+1. Packages install their files (configs, binaries, units).
+2. `airootfs/` is copied over, recursively, path by path. A file at `airootfs/etc/ssh/sshd_config` replaces the ssh package's default; a file that no package provides simply appears.
+3. `file_permissions` from `profiledef.sh` runs last, fixing up ownership and modes for listed paths.
+
+Ownership and modes of files you add are preserved from your checkout as far as the filesystem allows, which is precisely why `file_permissions` exists: git is not a reliable way to carry the executable bit or restrictive modes into the image.
+
+The tree mirrors a real root: `airootfs/etc/`, `airootfs/root/`, `airootfs/usr/local/bin/`, and so on. Anything valid on a running system is valid here.
+
+## The real Parch live setup
+
+The desktop editions ship a consistent live-environment configuration. Knowing what is already there keeps you from reinventing (or breaking) it.
+
+### Display manager autologin (SDDM)
+
+Desktop editions using SDDM log the live user straight into the graphical session:
+
+<CodeBlock title="airootfs/etc/sddm.conf.d/autologin.conf (representative; check the edition repo for the exact session value)">
+
+```ini
+[Autologin]
+User=parch
+Session=plasma
+```
+
+</CodeBlock>
+
+The `Session` value must match the session desktop file the edition installs (`plasma` for Plasma, `hyprland` for the Hyprland edition, and so on), see [Desktop profiles](/iso/desktop-profiles/).
+
+### Console autologin (getty)
+
+Non-graphical editions (and the console on all editions) autologin on tty1 via a systemd drop-in:
+
+<CodeBlock title="airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf">
+
+```ini
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin parch --noclear %I $TERM
+```
+
+</CodeBlock>
+
+The empty `ExecStart=` line clears the unit's original value first, keep it when you adapt this pattern for another tty.
+
+### Sudo for the live user
+
+<CodeBlock title="airootfs/etc/sudoers.d/g_wheel">
+
+```text
+%wheel ALL=(ALL:ALL) ALL
+```
+
+</CodeBlock>
+
+This grants sudo to members of `wheel`, the group Calamares puts the created user into (see [Calamares installer](/iso/calamares-installer/)). Files in `sudoers.d` must not be world-writable; if you add another one, give it a restrictive mode via `file_permissions` (for example `"0:0:440"`).
+
+### Network via systemd-networkd
+
+The live environment brings networking up with systemd-networkd rather than a full manager, using three drop-in profiles:
+
+```text
+airootfs/etc/systemd/network/20-ethernet.network
+airootfs/etc/systemd/network/20-wlan.network
+airootfs/etc/systemd/network/20-wwan.network
+```
+
+Each matches a class of interface (`en*` ethernet, `wl*` wireless, `ww*` modems) and runs DHCP on it. Representative shape:
+
+```ini
+[Match]
+Name=en*
+
+[Network]
+DHCP=yes
+```
+
+To network-different behavior in the live environment, edit these files, there is no NetworkManager to disable. Installed systems get their own network configuration during installation.
+
+### Pacman hooks that keep the live system honest
+
+The profiles ship three hooks under `airootfs/etc/pacman.d/hooks/`:
+
+| Hook | What it does |
+| --- | --- |
+| `40-locale-gen.hook` | Regenerates locales after glibc changes, so the live system's locale configuration stays valid across package transactions. |
+| `uncomment-mirrors.hook` | Uncomments mirrors in `/etc/pacman.d/mirrorlist` so pacman has usable servers after mirrorlist packages update. |
+| `zzzz99-remove-custom-hooks-from-airootfs.hook` | Runs last (hence the name) to remove these live-only hooks from the airootfs, so live-specific behavior does not leak into systems installed from the medium. |
+
+If you add a live-only pacman hook, consider whether it should be removed on install too, that is what the `zzzz99` hook's pattern is for. The exact `Trigger`/`Action` sections of each hook are in the repository; they follow the standard pacman hook format.
+
+### Live-environment scripts in /usr/local/bin
+
+Carried over from upstream archiso's releng profile (and listed in `file_permissions`):
+
+- **`choose-mirror`**, re-ranks `/etc/pacman.d/mirrorlist` interactively.
+- **`Installation_guide`**, opens the installation guide in the console.
+- **`livecd-sound`** and **`livecd-alsa-unmuter`**, detect and unmute sound hardware on live boot, so audio works out of the box.
+
+Remember: any script you add here needs a matching `["/usr/local/bin/your-script"]="0:0:755"` entry in `profiledef.sh`.
+
+### Initramfs and motd
+
+- **`airootfs/etc/mkinitcpio.conf.d/archiso.conf`**, adds the `archiso` hooks (such as `archiso`, `archiso_loop_mnt`) to the initramfs HOOKS array. These teach early userspace to find and mount the live medium by `archisolabel`. Do not remove this file or reorder the hooks without testing a full boot afterwards.
+- **`airootfs/etc/motd`**, the message printed after console login, greeting the user and pointing at the installation guide.
+
+### Hardware quirk handling
+
+Small per-driver fixes live in `airootfs/etc/modprobe.d/`. For example, profiles that ship the Broadcom `broadcom-wl` driver include a modprobe configuration to keep the conflicting in-kernel b43 driver from grabbing the device first. This file-per-quirk pattern is the right place for blacklist and option fixes in your own edition.
+
+## Enabling services in the live system
+
+There is no running systemd during the build, so "enable a service" means shipping the enabling symlink (or a preset) as a file. To enable a service that a package provides:
+
+<CodeBlock title="Enabling a service via symlink in the profile">
+
+```bash
+$ cd parch-iso-template
+$ mkdir -p iso/airootfs/etc/systemd/system/multi-user.target.wants
+$ ln -sf /usr/lib/systemd/system/NetworkManager.service \
+    iso/airootfs/etc/systemd/system/multi-user.target.wants/NetworkManager.service
+```
+
+</CodeBlock>
+
+Notes:
+
+- Use **relative-to-root absolute paths** (`/usr/lib/systemd/system/...`) as the link target, the symlink must be valid inside the built image, not on your host.
+- `display-manager.service` is enabled the same way, by symlinking it to your display manager unit (`sddm.service`, `gdm.service`, `lightdm.service`, …). The desktop editions already ship this symlink; a new desktop edition must add it.
+- The alternative is a systemd preset file (for example `airootfs/etc/systemd/system-preset/`), which declaratively enables/disables units on first boot. Prefer the symlink when you want the service on the live system itself, not just on installed systems.
+
+## Adding your own customization
+
+A worked example, ship a small live-only script and set its permissions:
+
+<Steps>
+  <Step title="Create the script">
+    Place it in the overlay:
+
+    <CodeBlock title="iso/airootfs/usr/local/bin/hello-parch">
+
+    ```bash
+    #!/usr/bin/env bash
+    echo "Hello from your custom Parch live environment"
+    ```
+
+    </CodeBlock>
+  </Step>
+  <Step title="Make it executable in the image">
+    Add to the `file_permissions` array in `iso/profiledef.sh`:
+
+    ```bash
+    ["/usr/local/bin/hello-parch"]="0:0:755"
+    ```
+  </Step>
+  <Step title="Rebuild and verify">
+    Rebuild (`sudo ./build.sh`), boot in QEMU (see [Testing an ISO](/iso/testing-iso/)), and run `hello-parch` in the live session.
+  </Step>
+</Steps>
+
+User-default dotfiles belong in **`airootfs/etc/skel/`**, anything there is copied into new users' home directories, both for the live user and for the account Calamares creates during installation. That makes `/etc/skel` the right home for desktop configuration (`~/.config/...`) you want users to start with.
+
+## Expected results
+
+- Files you add appear in the live system at the same absolute path (`ls /usr/local/bin/hello-parch` inside the VM).
+- Overridden configs take effect (verify with `systemctl status` or by reading the file inside the VM).
+- Services you symlinked show as `enabled` in `systemctl is-enabled <name>` in the live session.
+
+## Troubleshooting
+
+- **Script "permission denied" in the live system**, the `file_permissions` entry is missing or wrong. Rebuild after fixing.
+- **Symlink broken in the live system**, the link target path does not exist in the image (typo, or the package that provides it is not in `packages.x86_64`).
+- **Overlay file did not override the package version**, the path is wrong (check with `pacman -Ql <pkg>` inside the VM for the real path).
+- **Live system lost networking after your edit**, you changed a `20-*.network` Match section so it no longer matches the interface. Revert, rebuild, and re-test.
+- **Locale errors in the live session**, you removed or reordered the pacman hooks, or broke `40-locale-gen.hook`'s assumptions; restore the hook and rebuild.
+
+## Related pages
+
+- [Profile structure](/iso/profile-structure/), `file_permissions` in full.
+- [Desktop profiles](/iso/desktop-profiles/), display-manager choice and skel defaults per edition.
+- [Calamares installer](/iso/calamares-installer/), what happens to this configuration when the user installs to disk.

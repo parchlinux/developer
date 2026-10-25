@@ -1,0 +1,56 @@
+---
+title: "Distribution Development"
+description: "Contribute to Parch itself: installer, system components, repository infrastructure, and release management."
+index: true
+order: 0
+---
+
+# Distribution Development
+
+Beyond apps and packages lies the distribution itself: the installer, system
+configuration, theming, and the repository infrastructure that holds it all
+together. This section covers how those pieces are built and maintained.
+
+<CardGrid>
+  <Card title="Component ownership" href="/distribution/component-ownership/">
+    Who maintains what, and how a change travels from issue to release.
+  </Card>
+  <Card title="Installer development" href="/distribution/installer-development/">
+    Working on the Parch Calamares flavor and archinstall-rs.
+  </Card>
+  <Card title="System configuration" href="/distribution/system-configuration/">
+    base-config, parch-config, and the defaults shipped on installed systems.
+  </Card>
+  <Card title="Theming & branding" href="/distribution/theming-branding/">
+    SDDM, GRUB, Plymouth, wallpapers, and the Arts pipeline.
+  </Card>
+  <Card title="Repository infrastructure" href="/distribution/repository-infrastructure/">
+    Running world and Void: tooling, promotion, and integrity.
+  </Card>
+  <Card title="Release management" href="/distribution/release-management/">
+    How editions ship, rollback, and communicate change.
+  </Card>
+</CardGrid>
+
+## The lifecycle of a change
+
+```text
+issue → RFC (if cross-cutting) → branch → implement → test
+      → pull request → review → merge → release (ISO tag or repo push)
+```
+
+Every distribution change starts from a real problem in an issue tracker.
+Cross-cutting changes (new edition, default-package changes, installer
+behavior) start in the [rfcs repo](https://github.com/parchlinux/rfcs)
+first; the [contribution workflow](/start/contribution-workflow/) explains
+the doors.
+
+## Where the risk lives
+
+<Callout kind="warning" title="Distribution changes reach everyone">
+  A broken theme update bricks logins for thousands of users; a bad
+  Calamares change corrupts installs. Distribution code reviews are stricter
+  than app reviews, and testing expectations are higher: boot both
+  firmwares, test the installer in a VM, and test upgrades from a real
+  installed system before asking for review.
+</Callout>

@@ -1,0 +1,83 @@
+---
+title: "Desktop integration"
+description: "Making any app feel native: desktop files, icons, MIME, notifications, services."
+order: 6
+---
+
+# Desktop integration
+
+An application that ignores the desktop is a window with a theme. These are
+the integration points every Parch app wires up, regardless of toolkit.
+
+## Desktop files
+
+Every application ships a desktop entry with Persian translations, correct
+categories, and a `StartupWMClass` that matches the real Wayland app id.
+The full annotated template lives in
+[HIG: desktop files](/hig/desktop-files/).
+
+## Icons
+
+- App icon: install to `/usr/share/icons/hicolor/scalable/apps/<name>.svg`
+  (or sized PNGs) and reference by name, never by path.
+- UI glyphs: use the system icon theme through the toolkit; bundle only
+  what is genuinely app-specific.
+
+## Notifications
+
+Send through the toolkit's notification API or the freedesktop
+notifications service. Never draw custom notification windows, and never
+notify about things visible on screen. Rules and anatomy:
+[HIG: notifications](/hig/notifications/).
+
+## File associations
+
+If your app opens files, declare `MimeType=` in the desktop entry and ship
+a MIME XML file for any new types. Update caches in the install hooks
+(`update-desktop-database`, `update-mime-database`). Never steal defaults
+on install; becoming the default is a user choice.
+
+## Background services
+
+Long-running helpers (a sync daemon, an update checker) are **systemd user
+units**, shipped in the package:
+
+```ini
+# /usr/lib/systemd/user/parch-example.service
+[Unit]
+Description=Parch Example background sync
+
+[Service]
+ExecStart=/usr/bin/parch-example --daemon
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+The package enables it in its `.INSTALL` hook or the app offers to enable
+it on first run. Tray applets (like parch-update's systray notifier) use
+the StatusNotifier protocol through the toolkit's appindicator support.
+
+## Wayland specifics
+
+- The app id (desktop file name, `StartupWMClass`) drives window matching;
+  get it right or window rules and docks misbehave.
+- Use portals for file dialogs, screenshots, and screen sharing.
+- Global shortcuts go through the compositor's shortcut protocol with user
+  consent, never X11 grabs.
+- Fractional scaling (125%, 150%) is a first-class test case.
+
+## The integration checklist
+
+```text
+[ ] Desktop entry with [fa] names, categories, StartupWMClass
+[ ] App icon in hicolor, referenced by name
+[ ] Notifications through the service, grouped, honest urgency
+[ ] MIME declarations + cache updates (if applicable)
+[ ] Background work as systemd user units (if applicable)
+[ ] Wayland: correct app id, portals, fractional-scaling test
+```
+
+Apps that pass this checklist feel native in both Plasma and GNOME, in
+both languages, on both display protocols.

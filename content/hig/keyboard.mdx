@@ -1,0 +1,47 @@
+---
+title: "Keyboard interaction"
+description: "Focus order, shortcuts, and platform keyboard conventions."
+order: 19
+---
+
+# Keyboard interaction
+
+Every Parch application must be fully operable without a pointer. This is an
+accessibility requirement and a power-user feature at once.
+
+## Focus
+
+<Checklist>
+  - Focus order follows visual order; focus is always visible.
+  - Dialogs trap focus; popovers return it on close.
+  - Tab moves between controls; arrow keys move within composite controls
+    (lists, tabs, radio groups, menus).
+  - Persian keyboard layouts are first-class: shortcut detection uses key
+    positions (`keycode`), not typed characters, so shortcuts work identically
+    on فارسی layouts.
+</Checklist>
+
+## Standard shortcuts
+
+| Keys | Action |
+|---|---|
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | Find / search in app |
+| <kbd>F1</kbd> | Help / documentation |
+| <kbd>Ctrl</kbd>+<kbd>,</kbd> | Preferences |
+| <kbd>Ctrl</kbd>+<kbd>Q</kbd> | Quit |
+| <kbd>Ctrl</kbd>+<kbd>W</kbd> | Close window/tab |
+| <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Shift</kbd>+<kbd>Z</kbd> | Undo / redo |
+| <kbd>F5</kbd> / <kbd>Ctrl</kbd>+<kbd>R</kbd> | Refresh |
+| <kbd>Delete</kbd> | Move selection to trash (never permanent) |
+| <kbd>Esc</kbd> | Cancel dialog, popover, or in-progress selection |
+
+## Rules
+
+<Checklist>
+  - App-specific shortcuts extend, never override, the standard set.
+  - Shortcuts are discoverable: menus show them; a shortcuts window
+    (<kbd>Ctrl</kbd>+<kbd>?</kbd>) lists all.
+  - No single-key shortcuts except in modal contexts (package managers may
+    use keys in a TUI; GUIs may not).
+  - Media and function keys follow the desktop's global bindings.
+</Checklist>

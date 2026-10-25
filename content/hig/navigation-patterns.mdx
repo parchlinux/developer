@@ -1,0 +1,41 @@
+---
+title: "Navigation patterns"
+description: "Sidebars, tabs, breadcrumbs, back/forward, and deep linking."
+order: 12
+---
+
+
+# Navigation patterns
+
+## Choosing a pattern
+
+<SpecTable
+  columns={["Pattern", "Use when", "Example"]}
+  rows={[
+    ["Sidebar", "≥ 5 peer destinations or two levels", "Parch Store, Settings"],
+    ["Tabs", "2–5 peer views, flat", "Store: Explore / Installed / Updates"],
+    ["Breadcrumbs", "Deep, page-like hierarchy", "File manager, docs"],
+    ["Back button", "Linear flows", "Installers, wizards"],
+    ["Search-first", "Large catalogs", "Store search, package info"],
+  ]}
+/>
+
+## Rules
+
+<Checklist>
+  - The current destination is always visible and marked (accent + weight).
+  - Navigation state survives app restarts where meaningful (reopen the last
+    pane).
+  - Deep links work: every view reachable by navigation is reachable by URL
+    or desktop action.
+  - Back/forward behave like a browser in document-like apps; in apps with a
+    sidebar, back steps through view history.
+  - Never nest tabs inside tabs; nest a list or sidebar instead.
+</Checklist>
+
+## Sidebar specifics
+
+- Sections are icon + label; icon-only sidebars need tooltips and are
+  reserved for narrow utility windows.
+- The sidebar scrolls independently of content.
+- On narrow windows it collapses into a drawer with the same tree and order.

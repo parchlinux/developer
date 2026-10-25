@@ -1,0 +1,126 @@
+---
+title: "Release automation"
+description: "How Parch ISO releases are built and shipped: the build.yaml CI pipeline, the pre-release test channel on mirror.parchlinux.com, stable 7z volumes and checksums, and the proposed path to signed ISOs."
+order: 11
+source: "ch. 46, 47; live .github/workflows/build.yaml in the parch-iso-* repositories"
+---
+
+# Release automation
+
+Every edition repository ships a GitHub Actions workflow, `.github/workflows/build.yaml`, that builds the ISO and ships the artifacts. You do not run CI by pushing: the pipeline is **release-driven**, which keeps the artifact set tied to a named, downloadable release.
+
+## The shape of the pipeline
+
+The workflow triggers when a release is published in the edition repository:
+
+```yaml
+name: Build ISO
+
+on:
+  release:
+    types: [published]
+```
+
+What a run does, in order:
+
+1. **Check out** the profile repository.
+2. **Install the build toolchain** in an Arch-based environment, the same dependency set the local `build.sh` installs (git, wget, github-cli, p7zip, reflector, rsync, and Parch's `archiso-99-1` on the desktop editions).
+3. **Build** with `mkarchiso -v iso/` (or the repository's `build.sh`).
+4. **Package the output**, the branch differs by release type, described next.
+5. **Publish** the artifacts.
+
+Stable releases are attached to the GitHub release via a release action (`softprops/action-gh-release`), so the exact binaries the CI built are what users download.
+
+## Two channels: test and stable
+
+The pipeline's behavior splits on whether the release was marked **pre-release** in GitHub.
+
+| | Pre-release (test channel) | Stable release |
+| --- | --- | --- |
+| Trigger | Release published with "pre-release" checked | Release published normally |
+| Artifact | One ISO file named `Parchlinux-test-latest.iso` | The ISO plus 7z multi-volume archive |
+| Destination | Uploaded over SSH to `mirror.parchlinux.com:/srv/http/test/` | Attached to the GitHub release |
+| Availability | `https://mirror.parchlinux.com/test/`, always the newest test build, overwritten each run | Permanent, versioned release assets |
+| Checksums | The test channel serves the single rolling file | `md5sums.txt` alongside the archive |
+
+The test channel exists so integration testing happens on real downloads: testers grab `Parchlinux-test-latest.iso` from the mirror, boot real hardware, and report against the pre-release, long before anything is stamped stable.
+
+<Callout kind="note" title="Why 7z multi-volume">
+  GitHub release assets have a size cap that the larger desktop ISOs exceed. The pipeline splits the ISO into a 7z archive with a volume size, `-v500m` or `-v1000m` depending on the edition, producing `*.7z.001`, `*.7z.002`, … plus an `md5sums.txt`. The template edition's local `build.sh` produces the same artifact shape, so what you test locally is what CI ships.
+</Callout>
+
+## Cutting a release
+
+Releasing an edition is a two-step rhythm, test first, stable second:
+
+<Steps>
+  <Step title="Land and validate the changes">
+    Merge the profile changes (package list, airootfs, branding) and do a local build with `sudo ./build.sh`, then run the test plan from [Testing an ISO](/iso/testing-iso/). CI does not catch what a QEMU boot catches.
+  </Step>
+  <Step title="Publish a pre-release">
+    In the edition repository, create a release marked **pre-release**. The pipeline builds and overwrites `Parchlinux-test-latest.iso` on the mirror's test channel.
+  </Step>
+  <Step title="Verify the test build">
+    Download `https://mirror.parchlinux.com/test/Parchlinux-test-latest.iso`, confirm it boots on both firmwares, and run an installer test to disk. This file is the integration point between the profile repo and the mirror.
+  </Step>
+  <Step title="Publish the stable release">
+    Uncheck pre-release (create the final release). CI builds again and attaches the 7z volumes and `md5sums.txt` to the release. Verify the assets appear on the release page before announcing.
+  </Step>
+</Steps>
+
+## Verifying a downloaded ISO
+
+As a packager you verify both your own builds and CI's:
+
+<CodeBlock title="Checksum and reassemble the release artifacts">
+
+```bash
+$ md5sum -c md5sums.txt
+Parchlinux-x86_64.iso: OK
+
+$ 7z x Parchlinux-x86_64.iso.7z.001        # reassembles the volumes into the ISO
+$ md5sum Parchlinux-x86_64.iso             # must match md5sums.txt again
+```
+
+</CodeBlock>
+
+- `md5sums.txt` lists the ISO's MD5; `md5sum -c` exits `OK` on match. Any mismatch means a corrupted or incomplete download, re-download the failing volume.
+- Reassembling needs every volume in one directory; 7z stops with an error if `.002` is missing.
+- Local template builds produce the identical `md5sums.txt` format, so the same commands verify CI output and your own.
+
+<Callout kind="warning" title="MD5 is integrity, not authenticity">
+  MD5 confirms the download is intact, not that it is authentic, it is unkeyed and cryptographically weak. Treat it as corruption detection only.
+</Callout>
+
+## ISO signing, proposed
+
+<Callout kind="important" title="Status: proposal">
+  Release signing is **not** part of today's pipeline. The following is a proposed direction, consistent with the infrastructure the profiles already carry, it is documented here so contributors build toward the same design, not as a description of current behavior.
+</Callout>
+
+The proposal, in three steps:
+
+1. **Sign release artifacts.** CI signs the ISO (detached signature) with a project key and publishes the signature and the public key alongside `md5sums.txt`.
+2. **Consume signatures in pacman.** The profiles already ship `iso/public.key` in every edition, and `pacman.conf` already has a `SigLevel` slot per repository, the path to signed packages is flipping `[world]` from `SigLevel = Never` to required signatures once the repository side is in place (see [Profile structure](/iso/profile-structure/)).
+3. **Document verification.** Users verify with gpg instead of (or in addition to) md5, closing the authenticity gap flagged above.
+
+Until that lands, the honest verification story is: MD5 for integrity, the GitHub release page for provenance.
+
+## Expected results
+
+- Publishing a pre-release replaces `Parchlinux-test-latest.iso` on the test channel within the CI run's duration.
+- Publishing a stable release attaches `*.7z.001/002/…` and `md5sums.txt` to the GitHub release.
+- `md5sum -c md5sums.txt` passes on freshly downloaded artifacts.
+
+## Troubleshooting
+
+- **CI ran but no test ISO appeared on the mirror**, the SSH upload step failed: check the Actions log for the deployment step and the configured secret; the build itself usually succeeded (see the artifacts of the run).
+- **Release published, no artifacts attached**, the build or packaging step failed before the release action ran; open the workflow run and read the first failing step. A `target not found` package error here is fixed in `packages.x86_64`, exactly as locally (see [Package lists](/iso/packages-x86_64/)).
+- **`7z x` fails with "cannot find archive"**, you are missing a volume; the release must be downloaded completely.
+- **Checksum mismatch on a re-downloaded file**, compare against a different network/mirror; persistent mismatch is a release-page issue worth an issue report, not a local fix.
+
+## Related pages
+
+- [Testing an ISO](/iso/testing-iso/), the pre-release verification plan.
+- [Build your first ISO](/iso/build-first-iso/), the local build CI mirrors.
+- [Release management](/distribution/), repository- and distribution-level release coordination.

@@ -1,0 +1,36 @@
+---
+title: "Pointer & touch"
+description: "Hover, selection, drag and drop, and touch input."
+order: 20
+---
+
+# Pointer & touch
+
+## Pointer
+
+<Checklist>
+  - Hover reveals secondary affordances (row actions, tooltips), never the
+    only path to a function.
+  - Tooltips appear after ~300ms and disappear on interaction; they hold
+    short clarifications, not instructions.
+  - Double-click opens in file contexts; single-click selects. In web-style
+    lists (store cards), single click activates.
+  - Right-click opens a context menu containing the row's plausible actions,
+    including the destructive ones (with confirmation downstream).
+  - Drag and drop: move within collections, copy with <kbd>Ctrl</kbd>; drop
+    targets highlight; <kbd>Esc</kbd> cancels a drag.
+</Checklist>
+
+## Touch
+
+Parch targets desktop first, but Plasma mobile and touchscreen laptops exist:
+
+- Hit targets ≥ 44px on touch-active surfaces.
+- Hover-dependent functionality has a tap equivalent (long-press opens the
+  context menu).
+- No hover-only disclosures on primary flows.
+
+## Cursor discipline
+
+Use correct cursors: text over text, pointer over links, default elsewhere.
+Custom cursors are not part of the design language.

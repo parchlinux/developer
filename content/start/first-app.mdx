@@ -1,0 +1,193 @@
+---
+title: "Your first app"
+description: "Build a small GTK4/libadwaita application in Python and package it, from zero to installed."
+order: 4
+---
+
+# Your first app
+
+This tutorial builds **Parch Hello**, a tiny GTK4/libadwaita application, and
+ends with it installed on your system through pacman. This is the fastest way
+to touch every layer: code, desktop integration, and packaging. The deep
+guides live in [Application Development](/app-dev/).
+
+## 1. Install the dependencies
+
+```bash
+$ sudo pacman -S --needed python gtk4 libadwaita python-gobject
+```
+
+## 2. Create the project
+
+```text
+parch-hello/
+├── parch-hello            # executable entry script
+├── parch_hello/
+│   ├── __init__.py
+│   └── window.py
+├── data/
+│   └── parch-hello.desktop
+└── PKGBUILD
+```
+
+```bash
+$ mkdir -p parch-hello/parch_hello parch-hello/data
+$ cd parch-hello
+```
+
+## 3. Write the application
+
+`parch-hello` (the entry script):
+
+```python
+#!/usr/bin/env python3
+import sys
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw
+from parch_hello.window import HelloWindow
+
+
+class HelloApp(Adw.Application):
+    def __init__(self):
+        super().__init__(application_id="com.parchlinux.Hello")
+
+    def do_activate(self):
+        win = HelloWindow(application=self)
+        win.present()
+
+
+if __name__ == "__main__":
+    HelloApp().run(sys.argv)
+```
+
+`parch_hello/window.py`:
+
+```python
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk
+
+
+class HelloWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("Parch Hello")
+        self.set_default_size(420, 220)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                      valign=Gtk.Align.CENTER)
+        box.append(Gtk.Label(label="سلام پارچ!"))
+        box.append(Gtk.Label(label="Welcome to Parch development."))
+
+        button = Gtk.Button(label="Say hello")
+        button.add_css_class("suggested-action")
+        button.connect("clicked", self.on_clicked)
+        box.append(button)
+        self.set_content(box)
+
+    def on_clicked(self, _button):
+        toast = Adw.Toast(title="درود! Hello!")
+        # Presentation via Adw.ToastOverlay is the polished way; a dialog
+        # keeps this tutorial two files long.
+        dialog = Adw.MessageDialog.new(self)
+        dialog.set_heading("Hello")
+        dialog.set_body("درود! Welcome to Parch application development.")
+        dialog.add_response("ok", "OK")
+        dialog.present()
+```
+
+<Callout kind="tip" title="Why libadwaita">
+  `Adw` gives you header bars, toasts, and settings rows that match the
+  [Parch HIG](/hig/) for free. The [GTK apps guide](/app-dev/gtk-apps/)
+  covers the idioms properly.
+</Callout>
+
+## 4. Test it locally
+
+```bash
+$ chmod +x parch-hello
+$ PYTHONPATH=. ./parch-hello
+```
+
+A small window appears with both scripts of the Parch audience: Persian and
+English. Close it.
+
+## 5. Make it desktop-integrated
+
+`data/parch-hello.desktop`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Parch Hello
+Name[fa]=سلام پارچ
+Comment=Your first Parch application
+Comment[fa]=اولین برنامهٔ پارچ شما
+Exec=parch-hello
+Icon=applications-utilities
+Terminal=false
+Categories=Utility;
+```
+
+## 6. Package it
+
+Create the `PKGBUILD`:
+
+```bash
+# Maintainer: Your Name <you@example.com>
+pkgname=parch-hello
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Your first Parch application"
+arch=('x86_64')
+url="https://github.com/parchlinux/parch-hello"
+license=('MIT')
+depends=('python' 'gtk4' 'libadwaita' 'python-gobject')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/parchlinux/parch-hello/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # replace with real checksums before submission
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    install -Dm755 parch-hello "$pkgdir/usr/bin/parch-hello"
+    install -Dm644 parch_hello/__init__.py "$pkgdir/usr/lib/python3/site-packages/parch_hello/__init__.py"
+    install -Dm644 parch_hello/window.py "$pkgdir/usr/lib/python3/site-packages/parch_hello/window.py"
+    install -Dm644 data/parch-hello.desktop "$pkgdir/usr/share/applications/parch-hello.desktop"
+}
+```
+
+<Callout kind="warning" title="Checksums are not optional">
+  `SKIP` is shown only because this tutorial's tarball is hypothetical. Real
+  submissions must run `updpkgsums` to fill real `sha256sums`. See
+  [PKGBUILD reference](/packaging/pkgbuild-reference/).
+</Callout>
+
+Build and install:
+
+```bash
+$ makepkg -si
+$ sudo pacman -U parch-hello-0.1.0-1-x86_64.pkg.tar.zst
+```
+
+## 7. Verify the full integration
+
+```bash
+$ pacman -Ql parch-hello          # list installed files
+$ gtk-launch parch-hello          # launch via desktop entry
+$ desktop-file-validate data/parch-hello.desktop
+```
+
+The app now appears in your application launcher with its Persian name.
+
+## Where to next
+
+- [First package tutorial](/start/first-package/): packaging mechanics in
+  depth.
+- [GTK apps](/app-dev/gtk-apps/): the full libadwaita idiom, settings, and
+  translations.
+- [HIG](/hig/): make it look like Parch, not just run on Parch.

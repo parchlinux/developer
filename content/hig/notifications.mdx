@@ -1,0 +1,44 @@
+---
+title: "Notifications"
+description: "When to notify, what to say, and how notifications behave."
+order: 26
+---
+
+# Notifications
+
+Notifications interrupt. Most events do not deserve one.
+
+## When to notify
+
+- Long operations (>10s) that finish while the user is elsewhere.
+- Events that require attention the user asked for (update available, build
+  finished, download failed).
+- Security-relevant changes.
+
+## When not to notify
+
+- Anything visible on screen already.
+- Routine progress (use the in-app indicator or systray applet).
+- Marketing, tips, or “did you know” content, never.
+
+## Anatomy
+
+<Checklist>
+  - One-line summary + optional one-line body; the body holds the recovery
+    (“Retry”, “Open logs” as notification actions).
+  - Icon identifies the app; the title identifies the event.
+  - Urgency is honest: critical urgency is for security and hardware issues
+    only.
+  - Sounds follow the system theme's defaults; apps don't ship their own.
+  - Group repeats (“12 packages updated” not 12 notifications).
+</Checklist>
+
+## Implementation
+
+- Send through the desktop notification service (freedesktop
+  `org.freedesktop.Notifications`) via the toolkit's API, never draw custom
+  notification windows.
+- Register a systray/applet presence for apps with ongoing background roles
+  (like parch-update's notifier applet).
+- Persist an in-app activity log so dismissed notifications remain
+  discoverable.

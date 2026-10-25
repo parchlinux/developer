@@ -1,0 +1,184 @@
+---
+title: "Build your first Parch ISO"
+description: "End-to-end tutorial: prepare an Arch build host, clone parch-iso-template, build the ISO, and boot it in QEMU with both BIOS and UEFI firmware."
+order: 4
+source: "ch. 12, 13, 14, 17; parch-iso-template build.sh"
+---
+
+# Build your first Parch ISO
+
+This tutorial builds a real, bootable Parch ISO from the `parch-iso-template` profile on a local machine. The template is the fastest edition to build (no desktop packages) and is the base every other edition grew from, so everything you learn here transfers directly.
+
+## Prerequisites
+
+- An **Arch-based host** (Arch Linux or Parch GNU/Linux), the tooling assumes Arch package management. Check with `pacman --version`.
+- **Root access**, `mkarchiso` must create device nodes and mount filesystems, so builds run as root via sudo.
+- **Disk space: 30 GB free** is a comfortable minimum. A single build can consume 15–20 GB of working space (`work/`), the template ISO needs roughly a gigabyte in `out/`, and the package cache (`/var/cache/pacman/pkg/`) grows on top. Desktop editions need more.
+- **RAM: 4 GB minimum, 8 GB recommended**, package installation and squashfs compression are memory-hungry.
+- **A working internet connection**, packages are downloaded from the Arch mirrors and the Parch `world` repository.
+- A filesystem that supports symlinks and long filenames for the build directory (ext4, btrfs, xfs, not FAT32).
+
+<Callout kind="note" title="Keep the host current">
+  Run a full `pacman -Syu` before building. Building a rolling-release ISO with outdated host tools is a classic source of confusing failures.
+</Callout>
+
+## Step-by-step
+
+<Steps>
+  <Step title="Update the host and install the test tools">
+    In a terminal, refresh the host and install QEMU plus OVMF firmware, you will need them to boot-test the result. (The build dependencies themselves are installed by `build.sh` in the next step, so you do not need to install `archiso` manually.)
+
+    <CodeBlock title="Update host, install QEMU and UEFI firmware">
+
+    ```bash
+    $ sudo pacman -Syu
+    $ sudo pacman -S --needed qemu-desktop edk2-ovmf
+    ```
+
+    </CodeBlock>
+
+    Working directory for the rest of the tutorial: your home directory, unprivileged user.
+  </Step>
+  <Step title="Clone the template profile">
+    Grab the profile from the `parchlinux` GitHub organization and look around.
+
+    <CodeBlock title="Clone and inspect">
+
+    ```bash
+    $ git clone https://github.com/parchlinux/parch-iso-template.git
+    $ cd parch-iso-template
+    $ ls iso/
+    airootfs  bootstrap_packages.x86_64  efiboot  grub  pacman.conf  profiledef.sh  public.key  syslinux
+    ```
+
+    </CodeBlock>
+
+    Three files are worth reading before building: `iso/profiledef.sh` (what the ISO is called and how it boots), `iso/packages.x86_64` (what goes in), and `build.sh` (what the build actually does). See [Profile structure](/iso/profile-structure/) for a guided tour.
+  </Step>
+  <Step title="Run the build">
+    From the repository root, as root, run the wrapper. It installs its own toolchain, the template flavor installs the stock `archiso` package, then invokes `mkarchiso -v iso/`.
+
+    <CodeBlock title="Build (root required)">
+
+    ```bash
+    $ sudo ./build.sh
+    ```
+
+    </CodeBlock>
+
+    Expect the first build to take a while, the bulk of it is downloading and installing packages into the airootfs. The console scrolls pacman output, then bootloader staging, then mksquashfs progress (a large percentage counter), then xorriso assembling the image. Subsequent builds are much faster because the package cache is warm.
+  </Step>
+  <Step title="Confirm the expected output">
+    On success, the last lines mention the finished ISO path, and `out/` contains the image. The template `build.sh` also produces the release-style artifacts: 7z multi-volume archives and an `md5sums.txt`.
+
+    <CodeBlock title="Typical out/ contents">
+
+    ```text
+    out/
+    ├── ParchLinux-x86_64.iso
+    ├── ParchLinux-x86_64.iso.7z.001
+    ├── ParchLinux-x86_64.iso.7z.002
+    └── md5sums.txt
+    ```
+
+    </CodeBlock>
+
+    Sanity-check the image: it should be roughly 1 GB for the template, and the checksum file should match it.
+
+    <CodeBlock title="Verify the checksum">
+
+    ```bash
+    $ cd out
+    $ md5sum -c md5sums.txt
+    ParchLinux-x86_64.iso: OK
+    ```
+
+    </CodeBlock>
+
+    An ISO dramatically smaller than expected usually means the build was interrupted, delete `out/` and rebuild.
+  </Step>
+  <Step title="Boot it with BIOS firmware in QEMU">
+    QEMU is the fast feedback loop. The simplest invocation boots the image the way an old machine would, through the BIOS/MBR Syslinux path of the ISOHYBRID image.
+
+    <CodeBlock title="BIOS boot test">
+
+    ```bash
+    $ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+        -cdrom out/ParchLinux-x86_64.iso -boot d
+    ```
+
+    </CodeBlock>
+
+    The Syslinux menu appears with Parch entries (standard boot, speech, RAM boot). Take the default.
+  </Step>
+  <Step title="Boot it with UEFI firmware in QEMU">
+    Run the same image against OVMF to exercise the systemd-boot path. `-bios` with the OVMF code image is enough for a boot test.
+
+    <CodeBlock title="UEFI boot test">
+
+    ```bash
+    $ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+        -bios /usr/share/edk2/x64/OVMF_CODE.4M.fd \
+        -cdrom out/ParchLinux-x86_64.iso -boot d
+    ```
+
+    </CodeBlock>
+
+    You should see the systemd-boot menu instead of Syslinux, same Parch entries, different bootloader. Both firmwares reaching the live environment confirms all four bootmodes were generated correctly.
+  </Step>
+  <Step title="Validate the live system">
+    Once booted (either firmware), log in, the live session autologins to a console on tty1, and run through this quick list:
+
+    <Checklist>
+      <p>The boot menu showed Parch entries and timed out into a boot without intervention.</p>
+      <p>Autologin dropped you to a shell (or, on desktop editions, into the graphical session via SDDM).</p>
+      <p>`cat /etc/motd` prints the Parch welcome text, which mentions the installation guide.</p>
+      <p>`Installation_guide` (run as root) opens the installation guide in console, the script ships in /usr/local/bin.</p>
+      <p>Networking works: `ping -c3 archlinux.org` resolves and replies.</p>
+      <p>`choose-mirror` runs and rewrites the mirror ranking.</p>
+      <p>`sudo pacman -Syu` works against the configured repositories, including the Parch `world` repo (`pacman -Sl world` lists it).</p>
+    </Checklist>
+  </Step>
+  <Step title="Shut down and clean up (or keep iterating)">
+    Power the VM off (`poweroff` inside the guest, or close the QEMU window). Back on the host, you now have a working baseline. From here the interesting paths are:
+
+    - Add packages, see [Package lists](/iso/packages-x86_64/).
+    - Change the live system, see [airootfs customization](/iso/airootfs-customization/).
+    - Build your own edition end to end, see the [Custom edition tutorial](/iso/custom-edition-tutorial/).
+  </Step>
+</Steps>
+
+## Expected results
+
+- A bootable `out/ParchLinux-x86_64.iso` (template edition) with matching `md5sums.txt` and 7z volumes.
+- The same image boots via Syslinux under BIOS/SeaBIOS and via systemd-boot under OVMF.
+- The live environment autologins, has network, and can reach the `world` repository.
+
+## Troubleshooting
+
+**Build: "error: failed to commit transaction" / "target not found"**
+A package in `iso/packages.x86_64` is missing from the configured repositories or conflicts with another entry. Fix the list, see [Package lists](/iso/packages-x86_64/). Then remove `work/` and rebuild.
+
+**Build: "must be run as root" or mkarchiso fails mounting**
+The build was not run with root privileges. Re-run `sudo ./build.sh` from the repository root; do not try to de-root mkarchiso.
+
+**Build dies mid-way with "No space left on device"**
+Check `df -h` on the filesystem holding the repository (working dir) and `/var/cache/pacman`. Free space (`paccache -r` from `pacman-contrib` helps) and rebuild. Partial squashfs images from a failed run are safe to delete along with `work/`.
+
+**Build: download timeouts or signature errors on Arch mirrors**
+Refresh databases and pick faster mirrors on the *host* (`sudo pacman -Syu`, then rerank `/etc/pacman.d/mirrorlist`). Remember: `-Sy` alone creates partial upgrades, always `-Syu`.
+
+**QEMU is very slow or stuck at the firmware screen**
+Without KVM acceleration QEMU runs painfully slow, confirm `-enable-kvm` and that the `kvm_intel`/`kvm_amd` module is loaded on the host. Also give the VM at least 2 GB of RAM; the live system wants room.
+
+**QEMU boots the ISO but the window is tiny / graphics are garbled**
+Add `-vga virtio` (or `qxl`) to the QEMU command, or test with the image's compatibility boot entry, which passes `nomodeset`.
+
+**Something else fails at boot**
+Work through [Testing an ISO](/iso/testing-iso/), it covers reading the console, editing the kernel command line from the systemd-boot menu, and unpacking the squashfs to inspect what was actually built.
+
+## Related pages
+
+- [Profile structure](/iso/profile-structure/), what you just cloned.
+- [Archiso fundamentals](/iso/archiso-fundamentals/), the phases you watched scroll by.
+- [Release automation](/iso/release-automation/), CI runs exactly this pipeline and ships the same artifact shape.

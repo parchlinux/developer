@@ -1,0 +1,181 @@
+---
+title: "Bootloader configuration"
+description: "The syslinux, grub, and efiboot directories in a Parch profile: which bootloader runs when, splash images, boot entries, and the kernel command line."
+order: 7
+source: "ch. 25, 26, 27, 28, 29, 30"
+---
+
+# Bootloader configuration
+
+A Parch ISO carries three bootloader configurations at once. The `bootmodes` array in `profiledef.sh` decides which ones mkarchiso materializes into the image:
+
+```bash
+bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito'
+           'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')
+```
+
+| Directory | Bootloader | Used when |
+| --- | --- | --- |
+| `iso/syslinux/` | Syslinux / ISOLINUX | **BIOS** boot, from USB (MBR path) or optical media (El Torito path) |
+| `iso/efiboot/` | systemd-boot | **UEFI** boot, from USB or optical media (ESP and El Torito UEFI entry) |
+| `iso/grub/` | GRUB | GRUB entries for UEFI boot; also the `loopback.cfg` used when booting the ISO file directly from another GRUB install |
+
+All three describe the same boot: load `vmlinuz-linux` plus microcode and `initramfs-linux.img` from `/$install_dir/boot/x86_64/`, pass the archiso kernel parameters, and hand off to the initramfs that mounts the squashfs live root.
+
+## Template variables
+
+mkarchiso substitutes two placeholders while generating the boot configuration:
+
+- `%INSTALL_DIR%`, the profile's `install_dir` (`arch` by default).
+- `%ARCHISO_LABEL%`, the profile's `iso_label` (for example `PARCHLINUX_202610`).
+
+This is why editing `iso_label` or `install_dir` requires a rebuild: the substitution happens at build time, and the initramfs locates the medium by label at boot time.
+
+## `iso/syslinux/`, BIOS boot
+
+The Syslinux configuration is split into small files that mkarchiso assembles:
+
+| File | Role |
+| --- | --- |
+| `syslinux.cfg` | Entry point. Uses `whichsys.c32` to branch to the right configuration for the medium. |
+| `archiso_head.cfg` | Menu setup: serial console, `UI vesamenu.c32`, menu title, colors, background. |
+| `archiso_sys.cfg` | Local-boot composition: default label, timeout, includes. |
+| `archiso_sys-linux.cfg` | The actual boot labels (kernel, initrd, APPEND parameters). |
+| `archiso_tail.cfg` | Extra entries: boot existing OS via `chain.c32`, hardware detection tool, memtest, reboot, poweroff. |
+
+A boot label looks like this:
+
+<CodeBlock title="A representative label from archiso_sys-linux.cfg">
+
+```text
+LABEL arch64
+TEXT HELP
+Boot the Parch GNU/Linux live medium.
+ENDTEXT
+MENU LABEL Boot Parch GNU/Linux (x86_64)
+LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/x86_64/intel-ucode.img,/%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
+APPEND archisobasedir=%INSTALL_DIR% archisolabel=%ARCHISO_LABEL%
+```
+
+</CodeBlock>
+
+Splash and menu appearance come from the head file: `MENU BACKGROUND <image>` sets the graphical backdrop (rendered by `vesamenu.c32`), and `MENU COLOR` directives tune text and selection colors.
+
+## `iso/efiboot/`, UEFI boot with systemd-boot
+
+The efiboot tree is the ESP content of the ISO:
+
+```text
+iso/efiboot/
+├── loader/
+│   ├── loader.conf          # Global settings
+│   └── entries/             # One .conf file per boot menu entry
+└── EFI/
+    └── BOOT/                # The systemd-boot EFI executable firmware looks for
+```
+
+`loader.conf` holds global behavior, the profiles use a menu timeout and a default entry naming scheme like `01-archiso-x86_64-linux.conf`. Entries are plain text:
+
+<CodeBlock title="iso/efiboot/loader/entries/01-archiso-x86_64-linux.conf">
+
+```text
+title    Parch Linux install medium (x86_64, UEFI)
+sort-key 01
+linux    /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/x86_64/intel-ucode.img
+initrd   /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
+options  archisobasedir=%INSTALL_DIR% archisolabel=%ARCHISO_LABEL%
+```
+
+</CodeBlock>
+
+The profiles ship a small set of entries with numeric prefixes that control menu order: the standard boot, a speech-enabled entry (`accessibility=on` for the speakup screen reader), RAM-copy entries (`copytoram`), and a compatibility-mode entry (`nomodeset`). Add your own entry by copying an existing file, bumping the prefix, and editing the `options` line.
+
+<Callout kind="tip" title="The boot menu is editable at boot time">
+  systemd-boot lets you edit an entry's kernel line by pressing `E` at the menu, invaluable when debugging, and one of the reasons systemd-boot is the UEFI default here (see [Testing an ISO](/iso/testing-iso/)).
+</Callout>
+
+## `iso/grub/`, GRUB configuration
+
+GRUB's configuration is a single script-style file plus a loopback helper:
+
+```text
+iso/grub/
+├── grub.cfg          # Menu entries for UEFI GRUB boot
+└── loopback.cfg      # Entry points for booting the ISO from another GRUB
+```
+
+`grub.cfg` loads the modules it needs (partition tables, `iso9660`, `fat`, video, font), sets up `gfxterm`, and defines the same menu entries as the other bootloaders:
+
+<CodeBlock title="Representative menuentry from iso/grub/grub.cfg">
+
+```text
+menuentry "Parch Linux install medium (x86_64, UEFI)" --class arch {
+    set gfxpayload=keep
+    search --no-floppy --set=root --label %ARCHISO_LABEL%
+    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisolabel=%ARCHISO_LABEL%
+    initrd /%INSTALL_DIR%/boot/x86_64/intel-ucode.img /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
+}
+```
+
+</CodeBlock>
+
+`loopback.cfg` exists so that a user who already has GRUB on their disk can boot the ISO file directly with GRUB's `loopback` command, without writing it to media.
+
+Editions that ship a branded GRUB look do it with the **`parch-grub-theme`** package from the `world` repository (see [Desktop profiles](/iso/desktop-profiles/)), the theme is referenced from the GRUB configuration, so the package must be in `packages.x86_64` for the theme files to exist in the image.
+
+## The kernel command line
+
+All three bootloaders pass the same core parameters; the archiso initramfs cannot boot without them:
+
+| Parameter | Purpose |
+| --- | --- |
+| `archisobasedir=%INSTALL_DIR%` | Directory inside the ISO containing the live data (`arch`). |
+| `archisolabel=%ARCHISO_LABEL%` | Volume label of the medium, how the initramfs finds the right device. |
+| `copytoram` | Copy the squashfs to RAM before mounting; the medium can be removed after boot. |
+| `accessibility=on` | Enables speakup screen-reader support in early userspace. |
+| `nomodeset` | Disable kernel mode setting, the fallback for graphics problems. |
+| `quiet splash` | Quiet console plus (when Plymouth is installed) the graphical boot splash. |
+
+Plymouth-tuned editions add `parch-plymouth` and the `plymouth` mkinitcpio hook, and pass `quiet splash loglevel=3` for a flicker-free graphical boot, see [Desktop profiles](/iso/desktop-profiles/).
+
+<Callout kind="warning" title="Keep the two archiso parameters intact">
+  Every boot failure of the form "root device not found" traces back to `archisobasedir` or `archisolabel` not matching the built image, usually because the label was changed in `profiledef.sh` without a rebuild, or the label exceeds 32 characters. When editing entries by hand at boot time, change nothing else first.
+</Callout>
+
+## Adding or changing a boot entry
+
+<Steps>
+  <Step title="Decide which firmware you target">
+    A BIOS-only tweak goes in `iso/syslinux/` (a new `LABEL` block); a UEFI tweak goes in `iso/efiboot/loader/entries/` (a new `.conf`); keep both in sync if the entry should exist everywhere.
+  </Step>
+  <Step title="Copy an existing entry as the base">
+    The existing entries already contain the two mandatory archiso parameters and the correct microcode/initramfs lines.
+  </Step>
+  <Step title="Edit the title, sort-key, and options">
+    Keep `sort-key` ordering sensible (lower sorts first), and only add parameters after the mandatory pair.
+  </Step>
+  <Step title="Rebuild and test both firmwares">
+    `sudo ./build.sh`, then the QEMU BIOS and UEFI commands from [Build your first ISO](/iso/build-first-iso/). An entry that boots in one firmware but not the other is usually a path typo, compare the `linux`/`LINUX` lines against the working entry.
+  </Step>
+</Steps>
+
+## Expected results
+
+- The Syslinux menu shows under BIOS QEMU; the systemd-boot menu shows under OVMF; both list the profile's entries.
+- `grep -R '%INSTALL_DIR%' iso/` returns hits before a build and none inside the built ISO, build-time substitution worked.
+- Editing only `iso_label` without rebuilding produces a boot failure, which is the fastest way to prove the substitution runs at build time.
+
+## Troubleshooting
+
+- **Syslinux shows a `boot:` prompt instead of the menu**, the head configuration's `UI`/menu module lines are broken, or `vesamenu.c32` failed to load. Compare against the upstream releng syslinux configuration.
+- **UEFI boots straight to firmware**, the ESP content was not generated (check `bootmodes` includes both `uefi-x64.systemd-boot.*` entries), or `EFI/BOOT/BOOTX64.EFI` is missing from the built ISO (`ls out/*.iso` mount contents).
+- **Kernel starts, then drops to an emergency shell**, the archiso parameters are wrong or the initramfs lost the `archiso` hooks; see [Testing an ISO](/iso/testing-iso/) for the debug workflow.
+- **Edited entry at boot time did not stick**, runtime edits are per-boot only; make the change in the profile files and rebuild.
+
+## Related pages
+
+- [Profile structure](/iso/profile-structure/), the variables being substituted here.
+- [Testing an ISO](/iso/testing-iso/), boot failure debugging workflows.
+- [Desktop profiles](/iso/desktop-profiles/), GRUB theme and Plymouth branding packages.

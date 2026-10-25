@@ -1,0 +1,62 @@
+---
+title: "ISO composition"
+description: "How profiles, airootfs, and the installer combine into bootable images."
+order: 6
+---
+
+# ISO composition
+
+A Parch ISO is assembled by **mkarchiso** from a *profile*: a directory that
+describes packages, a filesystem overlay, bootloader files, and metadata.
+This page is the 1,000-meter view; the [ISO Building](/iso/) section goes
+file by file.
+
+```text
+parch-iso-plasma/               one repo per edition
+└── iso/
+    ├── profiledef.sh           metadata: name, label, bootmodes, squashfs options
+    ├── packages.x86_64         packages installed into the live system
+    ├── bootstrap_packages.x86_64  packages for the bootstrap root (build-time)
+    ├── pacman.conf             repos the build uses ([world] first)
+    ├── airootfs/               overlay copied onto the live root (/etc, /usr/local/…)
+    ├── efiboot/ + syslinux/ + grub/  bootloader files
+    └── public.key              build signing material
+```
+
+## The build pipeline
+
+1. **Bootstrap:** mkarchiso creates a minimal root and installs
+   `bootstrap_packages.x86_64` into it using the profile's `pacman.conf`.
+2. **Live root:** it installs `packages.x86_64` (the real live system) and
+   copies `airootfs/` over it.
+3. **Customization:** pacman hooks and services defined in airootfs run to
+   configure the live system (autologin, networkd, mirrors).
+4. **Squashfs:** the live root is compressed into a squashfs image (xz,
+   1 MiB blocks for these profiles).
+5. **ISO:** bootloader files and kernel parameters are combined with the
+   squashfs into the final ISO; checksums are produced alongside.
+
+## The live environment
+
+The result boots to a configured desktop without touching the disk: SDDM
+autologin, systemd-networkd networking with DHCP on all interfaces, the
+Calamares installer on the desktop, and helper scripts
+(`choose-mirror`, `Installation_guide`, `livecd-sound`) in
+`/usr/local/bin`. All of it is ordinary files in `airootfs/`, which makes
+every behavior discoverable and editable.
+
+## Installation
+
+The installer is **Calamares**, packaged in world with Parch branding and
+configuration. It reads `/etc/calamares/` in the live session, so the
+partitioning, users, and locale behavior are profile-controlled too.
+See [Calamares](/iso/calamares-installer/).
+
+## Editions
+
+Each edition repo is a variation on this structure: different
+`packages.x86_64`, different desktop airootfs bits, sometimes a different
+display manager. The differences that matter are tabulated in
+[Desktop profiles](/iso/desktop-profiles/), and the template workflow for
+making your own edition is the
+[custom edition tutorial](/iso/custom-edition-tutorial/).

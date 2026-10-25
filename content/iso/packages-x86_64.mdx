@@ -1,0 +1,133 @@
+---
+title: "Package lists"
+description: "How packages.x86_64 and bootstrap_packages.x86_64 work, how the world repository is wired into the build, and how to add or remove packages safely."
+order: 5
+source: "ch. 10, 26, 31, 63; live parch-iso-* repositories"
+---
+
+# Package lists
+
+The package manifest is the single source of truth for what a Parch ISO contains. It is a plain text file, no versions, no dependency trees, no logic, and pacman resolves everything else at build time.
+
+## `packages.x86_64`
+
+`iso/packages.x86_64` lists one package name per line, exactly as you would pass it to `pacman -S`. Blank lines and `#` comments are allowed. Groups work too: a line `plasma` installs the whole Plasma group.
+
+```text
+# Base
+base
+linux
+linux-firmware
+
+# Live tooling
+mkinitcpio
+networkmanager
+sudo
+```
+
+What you need to know:
+
+- **No version pinning.** The build always installs the newest version available in the configured repositories at build time. If you truly need a specific version, you control a repository, not the list.
+- **Dependencies are automatic.** Only top-level packages belong in the list; pacman pulls their dependencies. Listing transitive dependencies by hand is noise that rots.
+- **Availability can change.** Packages get renamed, split, or removed upstream. A list that built last month can fail today, which is exactly why the editions rebuild on every release (see [Release automation](/iso/release-automation/)).
+- **Size is your budget.** Every line increases download, build, squashfs compression, and install time. Desktop ISOs land in the 2–4 GB range; the template sits around 1 GB.
+
+## `bootstrap_packages.x86_64`
+
+A second manifest, `iso/bootstrap_packages.x86_64`, exists for upstream archiso's **bootstrap buildmode**, a compressed rootfs tarball for network-install workflows. It is typically a short list (`base` and a few essentials). With the Parch profiles' standard `buildmodes=('iso')` it is not consumed by a normal build, so you rarely touch it; keep it working anyway so the profile stays compatible with upstream modes.
+
+## How the world repository fits in
+
+`iso/pacman.conf` decides where those package names resolve from. It is a standard pacman configuration, `[core]`, `[extra]`, `[multilib]` via the mirrorlist, plus the Parch repository, listed **before** the Arch repositories so Parch packages win name collisions:
+
+<CodeBlock title="The Parch repository entry in iso/pacman.conf">
+
+```ini
+# Parch packages, must stay listed BEFORE [core]/[extra]
+[world]
+SigLevel = Never
+Server = https://github.com/parchlinux/world/raw/refs/heads/main/x86_64/
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+```
+
+</CodeBlock>
+
+The `world` repository carries everything that makes the ISO *Parch*: the Calamares setup (`calamares`, `calamares-parch`), branding and theming packages (`parch-sddm`, `parch-grub-theme`, `gnome-parch`, `parch-plymouth`), first-party tools (`parch-welcome`, `parch-update`, `mirrorman`, `gamehub`, PKM), and hardware helpers. Because it is a plain binary repo, packages from it need no special handling in the manifest, a line `calamares-parch` is all it takes.
+
+<Callout kind="warning" title="SigLevel = Never is a deliberate, known trade-off">
+  The `world` repository is currently consumed without signature verification. Do not "fix" this by pointing `SigLevel` at a keyring that is not wired up, the build will fail. Signed repositories are a proposed improvement tracked in [Release automation](/iso/release-automation/). Also note: the old `ppr`/`pcp` repositories and `git.parchlinux.com` URLs are dead; replace any you find in forks with the `[world]` block above.
+</Callout>
+
+## Adding and removing packages
+
+Adding a package is one line in `packages.x86_64` plus a rebuild. The craft is in checking before you commit:
+
+1. **Does it exist, and where?** `pacman -Si <name>` against your host (which has the same repositories configured) shows the package and which repo provides it. `pacman -Fy && pacman -F <file>` finds packages by file.
+2. **What does it drag in?** `pacman -Si` shows `Depends On`; for the real total, do a trial install into a throwaway root with the profile's own config:
+
+   <CodeBlock title="Dry-run a package against the profile repositories">
+
+   ```bash
+   $ sudo pacman -Sy --print-format "%s %n" --cachedir /tmp/pkgcache \
+       -C /dev/null <package>        # quick resolution check against host repos
+   # For a faithful test with iso/pacman.conf, use a scratch root:
+   $ sudo pacstrap -C iso/pacman.conf -K /tmp/testroot <package>
+   $ sudo rm -rf /tmp/testroot
+   ```
+
+   </CodeBlock>
+3. **Is something else already providing it?** Desktop editions ship a curated set; two network managers or two display managers will fight at boot. Check the list before adding (`grep -i <name> iso/packages.x86_64`).
+
+Removing is the reverse, with one trap: ** pacman will not remove a package that another listed package depends on.** If the build fails with "could not satisfy dependencies" pointing at a package you removed, search the list for what needs it and decide whether to remove that too, or keep the dependency.
+
+## Dependency and conflict pitfalls
+
+- **Groups are firehoses.** `plasma` or `gnome` pull dozens of packages you may not want. Prefer explicit package lists for lean editions; prefer groups when you want "everything upstream ships".
+- **Replacements can hijack the build.** If a package you list `Replaces:` a package you also list, pacman will remove it mid-transaction. Watch build output for `removing <pkg>`.
+- **Optional dependencies are not installed.** If a tool needs an optional backend to be useful in the live environment, list the backend explicitly.
+- **Conflicts fail the whole build.** Two listed packages that conflict = dead build. The error names both, remove one.
+- **Provisioner races.** Some packages are alternatives (for example `iptables` vs `nftables`). Listing both is a coin flip; list exactly one.
+
+## Kernel flavors
+
+The kernel comes from the manifest too, and the choice ripples through the whole image:
+
+| Flavor | Package | When to choose it |
+| --- | --- | --- |
+| Standard | `linux` | Default; best driver coverage for recent hardware. |
+| LTS | `linux-lts` | Older machines, maximum stability, slower feature uptake. |
+| Zen | `linux-zen` | Desktop-oriented tuning; common in enthusiast editions. |
+| Hardened | `linux-hardened` | Security-focused builds; breaks some out-of-tree modules. |
+
+Rules that keep the choice consistent:
+
+- Ship **one** kernel per edition. Boot entries reference `vmlinuz-linux` and `initramfs-linux.img`; a second kernel needs its own boot entries in `syslinux/`, `grub/`, and `efiboot/`.
+- Out-of-tree modules are kernel-specific: `broadcom-wl`, for example, exists per-kernel (`broadcom-wl`, `broadcom-wl-lts`). The Parch profiles that ship it also ship a modprobe configuration under `airootfs/etc/modprobe.d/`, swap kernel and module packages together.
+- Always pair the kernel with `linux-firmware`, and include `intel-ucode`/`amd-ucode` so CPU microcode loads early; the bootloaders load microcode before the main initramfs.
+
+## Expected results
+
+- `pacman -Sl` inside a booted live session lists `world` among the repositories.
+- Every line of `packages.x86_64` resolves: `mkarchiso` completes the package phase without `target not found` errors.
+- After removing a line and rebuilding, the package is gone from the live system (`pacman -Q <pkg>` fails in the VM).
+
+## Troubleshooting
+
+- **`error: target not found: <pkg>`** at the package phase, the name is wrong, or it lives in a repository missing from `iso/pacman.conf`. Check `pacman -Si` on the host.
+- **`error: failed to prepare transaction (could not satisfy dependencies)`**, a removed or conflicting package. Read the message: it names the dependents.
+- **`error: failed to commit transaction (conflicting files)`**, two packages own the same path, often an AUR-style or `world` package shadowing an official one. Since `[world]` is first, a stale Parch package can shadow a renamed official package; check the `world` repo listing for the current package names.
+- **ISO boots but hardware is missing drivers**, you picked a kernel flavor whose matching module package is absent (`broadcom-wl` and friends are per-kernel).
+
+## Related pages
+
+- [Profile structure](/iso/profile-structure/), where `pacman.conf` sits in the build.
+- [Desktop profiles](/iso/desktop-profiles/), curated sets per edition, including theming packages.
+- [Packaging](/packaging/), building the packages that end up on these lists.

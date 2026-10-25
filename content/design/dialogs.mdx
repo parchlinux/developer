@@ -1,0 +1,65 @@
+---
+title: "Dialogs & toasts"
+description: "Confirmation windows, destructive flows, and transient notifications."
+order: 6
+---
+
+
+# Dialogs & toasts
+
+## Dialogs
+
+Dialogs interrupt for a decision. They are modal, centered, and escape with
+<kbd>Esc</kbd> or the close button. A dialog has at most three actions, and
+the confirming action carries the intent's styling.
+
+<Demo>
+  <DemoStage name="dialog-demo" />
+</Demo>
+
+## Destructive flows
+
+Destructive actions follow a strict sequence: the trigger button is
+destructive-styled only **inside** the confirmation dialog; the entry point
+looks like a normal button until the user commits.
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex flex-col items-center gap-2">
+        <button className="h-9 rounded-lg border border-border-strong bg-surface px-3.5 text-[0.875rem] text-text">Remove package…</button>
+        <span className="text-[0.75rem] text-text-subtle">→ dialog → destructive button</span>
+      </div>
+    ),
+    caption: "Entry point is calm; the dialog carries the destructive styling.",
+  }}
+  dont={{
+    children: (
+      <div className="flex flex-col items-center gap-2">
+        <button className="h-9 rounded-lg bg-danger px-3.5 text-[0.875rem] font-medium text-white">Remove package</button>
+        <span className="text-[0.75rem] text-text-subtle">immediately destructive</span>
+      </div>
+    ),
+    caption: "A red button in a list invites accidental clicks and ignores confirmation.",
+  }}
+/>
+
+## Toasts
+
+Toasts report the outcome of a background operation. They auto-dismiss after
+~4 seconds, stack bottom-end, and never block input.
+
+<Demo>
+  <DemoStage name="toast-demo" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - Dialogs state the consequence before the action (“This will remove the
+    Parch Welcome application and its 3 dependencies”).
+  - Cancel is always available in destructive dialogs.
+  - Toasts are not for decisions, anything requiring a choice is a dialog or
+    a banner.
+  - Don't stack more than three toasts; coalesce repeats (“3 mirrors failed”).
+</Checklist>

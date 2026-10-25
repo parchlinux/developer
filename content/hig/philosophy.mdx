@@ -1,0 +1,68 @@
+---
+title: "Design philosophy"
+description: "Five principles that guide every Parch interface decision."
+order: 1
+---
+
+
+# Design philosophy
+
+## 1. Calm by default
+
+The interface is quieter than the user's work. One accent color, one primary
+action per view, no decorative animation. If a screen feels busy, remove
+before you restyle.
+
+## 2. Persian is not an afterthought
+
+Parch's core audience includes Persian speakers. Every layout must survive
+translation to RTL, every font stack must render Persian text correctly, and
+locale-aware defaults (fa_IR, the Solar Hijri calendar option, Persian
+numerals where appropriate) are design inputs from day one.
+
+## 3. The system is the brand
+
+Applications inherit Parch's identity from shared tokens and patterns, not
+from custom chrome. An app that fights the system theme is broken even if it
+is beautiful.
+
+## 4. Progressive disclosure
+
+Show the essential; put the advanced behind disclosure (menus, secondary
+buttons, an “Advanced” group). Defaults should be correct for 90% of users.
+
+## 5. Errors are conversations
+
+Every failure state names what happened, why, and what to do next. Errors
+preserve the user's work. Silence and dead ends are the only unacceptable
+responses.
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex flex-col gap-2 text-[0.84rem] text-text-muted">
+        <p className="font-semibold text-text">Update failed</p>
+        <p>The world repository could not be reached (timeout after 30s).</p>
+        <p>Your system was not changed. Check your connection and retry.</p>
+      </div>
+    ),
+    caption: "What happened, why, impact, next step.",
+  }}
+  dont={{
+    children: (
+      <div className="text-[0.84rem] text-text-muted">
+        <p className="font-semibold text-danger">Error code 22</p>
+      </div>
+    ),
+    caption: "A code is not a conversation.",
+  }}
+/>
+
+## What the HIG is not
+
+- Not a mandate for identical apps: toolkit-native patterns win where they
+  conflict (see [Platform integration](/hig/platform-integration/)).
+- Not a replacement for usability testing: rules here are defaults, not
+  evidence.
+- Not frozen: proposals for change go through the same review process as
+  code (see [Distribution development](/distribution/)).

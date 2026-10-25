@@ -1,0 +1,73 @@
+---
+title: "App security practices"
+description: "Privilege separation, sandboxing, secrets, and dependency hygiene for Parch apps."
+order: 9
+---
+
+# App security practices
+
+## Privilege separation
+
+Apps that need privileged operations (package management, disk, system
+config) follow the **Kernel Manager pattern**: the GUI runs unprivileged as
+the user; privileged actions go through **polkit** (`pkexec` or a
+D-Bus-activated helper with a policy).
+
+```xml
+<!-- /usr/share/polkit-1/actions/com.parchlinux.hello.policy -->
+<policyconfig>
+  <action id="com.parchlinux.hello.apply-config">
+    <description>Apply Parch Hello configuration</description>
+    <message>Authentication is required to apply system settings</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
+```
+
+<Checklist>
+  - Never run the GUI as root; never `sudo` from inside the app.
+  - Prefer `auth_admin_keep` sparingly: the kept authorization is a window
+    of elevated trust.
+  - The privileged helper validates inputs itself; never trust arguments
+    because "the GUI sent them".
+  - Live terminal feedback for pacman operations (VTE, as PKM does) keeps
+    privileged actions auditable by the user.
+</Checklist>
+
+## Sandboxing
+
+For apps handling untrusted input (file parsers, browsers, anything
+executing downloaded code), isolate with bubblewrap namespaces or ship a
+Flatpak for sandboxed distribution. Sandboxing is recommended, not yet
+mandated, for Parch apps; the practical baseline today:
+
+- Parse untrusted files in a subprocess with restricted filesystem views.
+- Never execute downloaded content; open with `xdg-open` so the desktop's
+  handler chain applies.
+- Network-privileged helpers expose a minimal D-Bus interface instead of a
+  listening TCP socket.
+
+## Secrets
+
+Use libsecret (through the toolkit's keyring API) for credentials. Config
+files must never contain passwords; `~/.config` files are plaintext by
+convention and are backed up, synced, and read by anything the user runs.
+
+## Dependency hygiene
+
+- Pin dependency versions in lockfiles; commit them.
+- Audit with the ecosystem tools (`cargo audit`, `pip-audit`) in CI.
+- Review transitive dependency additions; every dependency is code you will
+  run with your user's privileges.
+- Vendored builds (Rust release packaging) make the dependency set explicit
+  and reviewable.
+
+## Configuration file permissions
+
+Sensible defaults: user config in `~/.config` with 600 for anything
+sensitive; system config in `/etc` owned root with 644 unless it holds
+secrets (then 600, root-owned, and read by the privileged helper only).

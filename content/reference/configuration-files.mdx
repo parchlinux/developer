@@ -1,0 +1,59 @@
+---
+title: "Configuration files"
+description: "Every file this portal touches, with its location and purpose."
+order: 2
+---
+
+# Configuration files
+
+## On installed systems
+
+| File | Purpose |
+|---|---|
+| `/etc/pacman.conf` | Repository configuration; `[world]` sits above `[core]` |
+| `/etc/pacman.d/mirrorlist` | Arch mirror list (ranked by `reflector` or MirrorMan) |
+| `/etc/locale.gen` | Locales to generate (fa_IR.UTF-8, en_US.UTF-8) |
+| `/etc/locale.conf` | System locale and language |
+| `/etc/localtime` | Timezone symlink (Asia/Tehran by default) |
+| `/etc/sddm.conf.d/*.conf` | SDDM behavior (autologin on live media) |
+| `/usr/share/polkit-1/actions/*.policy` | Privilege policies for app actions |
+| `/usr/lib/systemd/user/*.service` | App background services |
+
+## In ISO profiles
+
+| File | Purpose |
+|---|---|
+| `iso/profiledef.sh` | ISO metadata: name, label, bootmodes, squashfs options |
+| `iso/packages.x86_64` | Live-environment package list |
+| `iso/bootstrap_packages.x86_64` | Build-time bootstrap package list |
+| `iso/pacman.conf` | Repos the build uses; `[world]` first, `SigLevel = Never` |
+| `iso/airootfs/` | Overlay copied onto the live root |
+| `iso/airootfs/etc/sddm.conf.d/autologin.conf` | Live autologin |
+| `iso/airootfs/etc/systemd/network/20-*.network` | Live networking (DHCP on all links) |
+| `iso/airootfs/etc/sudoers.d/g_wheel` | Wheel group sudo on live media |
+| `iso/airootfs/etc/pacman.d/hooks/*.hook` | Build-time pacman hooks (locale-gen, mirrors) |
+| `iso/airootfs/usr/local/bin/` | Live helpers: choose-mirror, Installation_guide, livecd-sound |
+| `iso/efiboot/`, `iso/syslinux/`, `iso/grub/` | Bootloader files and kernel parameters |
+| `iso/public.key` | Build signing material |
+
+## Calamares (live environment)
+
+| File | Purpose |
+|---|---|
+| `/etc/calamares/settings.conf` | Module sequence (YAML) |
+| `/etc/calamares/branding/parch/branding.desc` | Product names, URLs, slideshow wiring |
+| `/etc/calamares/modules/*.conf` | Per-module behavior (welcome, locale, keyboard, partition, users, summary, finished) |
+| `/usr/share/calamares-parch/presets/*.yaml` | Parch presets (e.g. btrfs with zstd) |
+
+## This portal
+
+| File | Purpose |
+|---|---|
+| `app/globals.css` | Design tokens (single source of truth) |
+| `lib/navigation.ts` | Section definitions for navigation |
+| `content/**/*.mdx` | All documentation content |
+| `components/parch-ui/` | The Parch UI kit |
+| `next.config.ts` | Static export configuration |
+| `Dockerfile` | Production image (nginx serving the static build) |
+
+Conventions for editing portal content: [CONTENT_GUIDE.md](https://github.com/parchlinux) in the repository root (also the reference for contributors).

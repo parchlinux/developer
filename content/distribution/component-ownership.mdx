@@ -1,0 +1,57 @@
+---
+title: "Component ownership"
+description: "Who maintains what, and how a change travels from issue to release."
+order: 1
+---
+
+# Component ownership
+
+The [component map](/architecture/component-map/) lists every Parch
+component and its repository. This page explains the process layer on top:
+how ownership works and how changes flow.
+
+## Ownership model
+
+- Each repository has one or more maintainers, visible in the commit
+  history and the org teams.
+- Maintainers review PRs in their repos and decide merges.
+- The core team coordinates cross-repo concerns (editions, releases,
+  infrastructure) and has final say on RFC decisions.
+- New maintainers are contributors with a track record; ask after sustained
+  contributions ([contribution workflow](/start/contribution-workflow/)).
+
+## Change lifecycle
+
+1. **Issue.** Every change starts from a problem, written down: what breaks,
+   for whom, and how to reproduce it.
+2. **RFC (when cross-cutting).** Changes touching more than one repo, or
+   user-visible defaults, get an RFC in
+   [rfcs](https://github.com/parchlinux/rfcs). The RFC names the problem,
+   options considered, and the decision.
+3. **Branch and implement.** Feature branches in the component repo, small
+   commits, conventional messages (`fix:`, `feat:`, `iso:`, `pkg:`).
+4. **Test locally.** For installer/system changes: VM boot of both
+   firmwares plus an install test. For theme changes: light and dark, LTR
+   and RTL.
+5. **Pull request.** Description states the problem link and test evidence.
+6. **Review and merge.** Maintainer review; stricter for installer and
+   boot-chain code.
+7. **Release.** ISO repos release by tag (CI builds automatically, see
+   [release automation](/iso/release-automation/)); repo components flow
+   through Void to world.
+
+## Review standards by area
+
+| Area | Extra requirements |
+|---|---|
+| Installer (Calamares modules) | VM install test, both auto and manual partitioning |
+| Boot chain (GRUB, SDDM, Plymouth) | BIOS and UEFI boot test; escape hatch reachable |
+| ISO profiles | Full build + boot test; package list diff explained |
+| System config (base-config) | Upgrade test from the previous version |
+| Themes | Light and dark, LTR and RTL screenshots in the PR |
+
+## Security-sensitive changes
+
+Changes touching the boot chain, installer, repositories, or anything with
+privilege escalation get a second maintainer review before merge. When in
+doubt, mark the PR and ask; see [Security](/security/).

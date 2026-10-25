@@ -1,0 +1,75 @@
+---
+title: "Testing applications"
+description: "Unit, integration, GUI, accessibility, and localization testing for Parch apps."
+order: 1
+---
+
+# Testing applications
+
+## Unit and integration tests
+
+Use the language's standard framework and wire it into `makepkg check()` so
+packaging runs it:
+
+| Stack | Framework | Runs in PKGBUILD via |
+|---|---|---|
+| Python | pytest | `checkdepends=('python-pytest')`, `check()` runs `pytest` |
+| Rust | built-in tests | `cargo test --frozen` in `check()` |
+| C++/Qt | CTest | `cmake --build build && ctest --test-dir build` |
+| Shell | bats | `checkdepends=('bats')` |
+
+```bash
+check() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    pytest -q
+}
+```
+
+Integration tests exercise real interactions: a package-manager frontend
+(pastor-style) should have a test that reads a fixture sync database; a
+settings service should test its config round-trip.
+
+## GUI testing
+
+GUI test frameworks exist, but the pragmatic Parch baseline is:
+
+<Checklist>
+  - A scripted **smoke test**: launch the app under Xvfb/Wayland headless,
+    assert the process stays alive and exposes its main window, quit.
+  - **Manual pass** over the primary flow on every release.
+  - Screenshots in the PR for UI changes (both themes).
+  - For toolkit automation when needed: GTK apps can drive tests through
+    AT-SPI (dogtail/pyatspi); Qt apps through Qt Test.
+</Checklist>
+
+## Accessibility testing
+
+- Keyboard-only pass: every flow operable without a pointer.
+- Screen reader pass with Orca over the primary flow: names and roles
+  sensible, no "unlabeled button".
+- Contrast check on real content in both themes.
+- 200% scaling without clipped controls.
+The rules these enforce live in the [accessibility HIG](/hig/accessibility/).
+
+## Localization testing
+
+1. Run with `LANG=fa_IR.UTF-8` and walk the app: reflow, truncation,
+   directionality.
+2. Inject mixed-direction strings (package names inside Persian sentences).
+3. Check plural forms: Persian plurals differ from English; use gettext
+   plural rules, never `if (n == 1)`.
+4. Confirm untranslatable content (commands, package names) stays LTR and
+   intact.
+Details: [testing translated apps](/localization/testing-l10n-a11y/).
+
+## Regression discipline
+
+When a bug is reported:
+
+1. Write the failing test first (unit where possible, scripted smoke at
+   worst).
+2. Fix until green.
+3. Keep the test forever.
+
+Bugs that escape to users get a test in the same PR as the fix; that is the
+policy, not a suggestion.

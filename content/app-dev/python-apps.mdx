@@ -1,0 +1,274 @@
+---
+title: "Python apps"
+description: "Command-line tools and desktop apps in Python on Parch: argparse and rich, pytest, packaging with pacman dependencies and entry points, and the venv rules."
+order: 5
+source: "ch. 53, 57"
+---
+
+# Python apps
+
+Python is everywhere in Parch's first-party software: parchdroid and
+Parch-Driver-Manager are Python, and PKM (parch-kernel-manager) is a Python
+GTK app. This page covers the non-GTK side: a well-behaved command-line
+tool, its tests, its packaging, and the venv discipline that keeps your
+system Python intact. For the GTK side, see [GTK apps](/app-dev/gtk-apps/).
+
+## Prerequisites
+
+- A Parch or Arch-based system, working directory `~/devel`, user privileges
+  except where `sudo` is shown.
+
+```bash
+$ sudo pacman -S --needed python python-rich python-pytest python-build \
+    python-installer python-wheel python-setuptools
+```
+
+## 1. Create the project
+
+```bash
+$ mkdir -p parch-nag/src/parch_nag parch-nag/tests
+$ cd parch-nag
+$ touch src/parch_nag/__init__.py
+```
+
+```text
+parch-nag/
+├── pyproject.toml
+├── src/
+│   └── parch_nag/
+│       ├── __init__.py
+│       └── cli.py
+└── tests/
+    └── test_cli.py
+```
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "parch-nag"
+version = "0.1.0"
+description = "Check whether packages are installed on Parch"
+requires-python = ">=3.9"
+dependencies = ["rich>=13"]
+
+[project.scripts]
+parch-nag = "parch_nag.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+```
+
+The `[project.scripts]` entry point is what puts a `parch-nag` command on
+the user's `PATH`; the same mechanism PKM uses for its `parch-kernel-manager`
+entry point.
+
+## 2. Write the CLI
+
+`src/parch_nag/cli.py`:
+
+```python
+"""parch-nag: check whether packages are installed, politely."""
+
+import argparse
+import subprocess
+
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
+err_console = Console(stderr=True)
+
+
+def query_package(package: str) -> tuple[str, str]:
+    """Return (status, version) for one pacman package name."""
+    result = subprocess.run(
+        ["pacman", "-Qi", package],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return "missing", ""
+    version = ""
+    for line in result.stdout.splitlines():
+        if line.startswith("Version"):
+            version = line.split(":", 1)[1].strip()
+            break
+    return "installed", version
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="parch-nag",
+        description="Check whether packages are installed on Parch",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="log each pacman call to stderr")
+    parser.add_argument(
+        "packages", nargs="+", metavar="PACKAGE",
+        help="package names to check")
+    return parser.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    missing = 0
+
+    table = Table(title="Parch package status")
+    table.add_column("Package")
+    table.add_column("Status")
+    table.add_column("Version")
+
+    for package in args.packages:
+        if args.verbose:
+            err_console.print(f"[dim]running pacman -Qi {package}[/dim]")
+        status, version = query_package(package)
+        style = "green" if status == "installed" else "red"
+        if status == "missing":
+            missing += 1
+        table.add_row(package, f"[{style}]{status}[/{style}]", version)
+
+    console.print(table)
+    return 1 if missing else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+The habits this file encodes: `argparse` with real help text, a single
+exit code contract (0 for all installed, 1 when anything is missing, so
+scripts can branch on it), stderr for diagnostics and stdout for results,
+and rich for tables that degrade gracefully when output is piped.
+
+## 3. Test it
+
+`tests/test_cli.py`:
+
+```python
+from parch_nag.cli import query_package
+
+
+def test_missing_package_is_missing():
+    status, version = query_package("parch-nag-does-not-exist")
+    assert status == "missing"
+    assert version == ""
+
+
+def test_base_kernel_is_installed():
+    status, version = query_package("linux")
+    assert status == "installed"
+    assert version  # a version string always exists for an installed package
+```
+
+```bash
+$ python3 -m venv .venv
+$ . .venv/bin/activate
+$ pip install -e .
+$ pytest
+$ parch-nag linux linux-firmware calamares-parch definitely-not-real
+$ echo $?
+```
+
+Expected result: pytest passes, the tool prints a table with one red row
+for the fake package, and the exit status is `1`. The editable install runs
+inside a venv, which is the same workflow PKM documents.
+
+## 4. Package it
+
+Follow the Arch Python packaging guidelines: build a wheel, install it with
+`python -m installer`, and declare real dependencies instead of vendoring.
+
+```bash
+# Maintainer: Your Name <you@example.com>
+pkgname=parch-nag
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Check whether packages are installed on Parch"
+arch=('any')
+url="https://github.com/parchlinux/parch-nag"
+license=('MIT')
+depends=('python' 'python-rich')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+checkdepends=('python-pytest')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/parchlinux/parch-nag/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # fill with updpkgsums before any real submission
+
+build() {
+    cd "$pkgname-$pkgver"
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    cd "$pkgname-$pkgver"
+    pytest
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+}
+```
+
+Notes on what the guidelines require:
+
+- `depends` names system packages (`python-rich`), never a bundled copy.
+  `python -m installer` places the `parch-nag` entry point in `/usr/bin` and
+  the module under `/usr/lib/python3.*/site-packages`.
+- `--no-isolation` uses the system build tools, so nothing is downloaded
+  during the build.
+- `arch=('any')` is correct for pure Python; use `x86_64` only if you ship
+  compiled extensions.
+- `checkdepends` runs your pytest suite during packaging, which catches
+  breakage before it reaches users.
+
+## 5. The venv and system Python rules
+
+<Callout kind="danger" title="Never pip install into the system Python">
+  Arch marks the system interpreter as externally managed (PEP 668): running
+  `pip install` outside a virtualenv fails with an
+  `externally-managed-environment` error, and bypassing it with
+  `--break-system-packages` is never acceptable. Pacman owns
+  `/usr/lib/python3.*/site-packages`; a root pip install overwrites or
+  shadows pacman-owned files and the next `pacman -Syu` fights your system.
+</Callout>
+
+<Checklist>
+  - Everything a user should keep: install through pacman or AUR, so the
+    package manager owns it.
+  - Everything you are developing: `python -m venv .venv`, activate it,
+    `pip install -e .` inside it. Delete and recreate the venv freely.
+  - Anything your package needs at runtime: declare it in `depends` with the
+    `python-` prefix. Do not vendor wheels, do not ship `site-packages`
+    copies, do not add `pip` to a package.
+  - Tools that must run outside a venv (`pipx`, or `uv tool install`) are a
+    user choice for dev utilities, never a packaging strategy for the
+    repositories.
+  - Test against the Python version Parch ships, not a venv pin: check
+    `pacman -Q python` before setting `requires-python`.
+</Checklist>
+
+## 6. Desktop integration for CLI tools
+
+A CLI is still a desktop citizen:
+
+- Ship a man page or at least `--help` that stands alone.
+- Keep diagnostics on stderr so journald capture (for anything running
+  under a systemd unit) stays clean.
+- Register a desktop entry only if the tool opens a window or a terminal;
+  see [desktop integration](/app-dev/desktop-integration/).
+- Translate user-facing strings like any other app, see
+  [localization](/app-dev/localization/).
+
+## Related pages
+
+- [GTK apps in Python](/app-dev/gtk-apps/): the full libadwaita tutorial.
+- [Rust apps](/app-dev/rust-apps/): when a compiled binary fits better.
+- [PKGBUILD reference](/packaging/pkgbuild-reference/): every variable and
+  function used above.
+- [Security practices](/app-dev/security-practices/): dependency hygiene and
+  why the vendoring ban matters.
+- [HIG](/hig/): if your tool grows a GUI.

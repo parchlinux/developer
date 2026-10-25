@@ -1,0 +1,269 @@
+---
+title: "Calamares installer"
+description: "How Calamares is installed and configured in the Parch live environment: the YAML configuration under /etc/calamares, branding, module defaults, offline installs, and debugging."
+order: 9
+source: "ch. 49, 61; calamares-parch repository"
+---
+
+# Calamares installer
+
+The graphical installer on every Parch live ISO is **Calamares** in its Parch flavor: upstream Calamares plus the Parch configuration package. This page documents how it is wired into the profile, what each configuration file controls, and how to debug it from the live session.
+
+<Callout kind="important" title="Calamares configuration is YAML">
+  Calamares reads every configuration file as **YAML**, `settings.conf`, `branding.desc`, and each module's `.conf`. You may run into older Parch material (including parts of the handbook) showing INI-style `settings.conf` files or module keys that upstream Calamares does not define; those do not work and should be rewritten in YAML with keys validated against upstream Calamares and the Parch configs. When in doubt, the source of truth is the **calamares-parch** repository: [github.com/parchlinux/calamares-parch](https://github.com/parchlinux/calamares-parch).
+</Callout>
+
+## How it gets installed
+
+Nothing special happens at build time, Calamares is just packages:
+
+- **`calamares`**, upstream installer framework and core modules, served from the `world` repository.
+- **`calamares-parch`**, the Parch configuration: `settings.conf`, branding, module defaults, and the Parch slideshow.
+- **`parch-branding`**, shared visual assets (logos, wallpapers) used by the installer and desktop.
+
+All three are listed in the desktop editions' `packages.x86_64`. The configuration lands at `/etc/calamares/` in the live system because the packages ship it, and in a profile, because the same tree is mirrored under `airootfs/etc/calamares/` when an edition needs to adjust it.
+
+## The /etc/calamares layout
+
+```text
+/etc/calamares/
+├── settings.conf              # Execution pipeline: which modules run, in which phase
+├── branding/
+│   └── parch/
+│       ├── branding.desc      # Product name, URLs, logo, slideshow, sidebar style
+│       ├── lang/              # Translations for the installer strings
+│       ├── parch-logo.png     # Product logo
+│       └── slide images / QML # The slideshow shown during installation
+└── modules/
+    ├── welcome.conf
+    ├── locale.conf
+    ├── keyboard.conf
+    ├── partition.conf
+    ├── users.conf
+    ├── summary.conf
+    └── finished.conf
+```
+
+## settings.conf, the pipeline
+
+`settings.conf` is YAML. It names the branding component and defines the module sequence in two phases: **show** (interactive pages) and **exec** (jobs that run when the user clicks Install). A Parch-shaped configuration, using upstream-valid keys:
+
+<CodeBlock title="settings.conf (structure; validate details against calamares-parch)">
+
+```yaml
+modules-search: [ local ]
+
+sequence:
+  - show:
+      - welcome
+      - locale
+      - keyboard
+      - partition
+      - users
+      - summary
+  - exec:
+      - partition
+      - mount
+      - unpackfs
+      - machineid
+      - fstab
+      - locale
+      - keyboard
+      - localecfg
+      - users
+      - displaymanager
+      - networkcfg
+      - hwclock
+      - services-systemd
+      - bootloader
+      - grubcfg
+      - umount
+
+branding: parch
+```
+
+</CodeBlock>
+
+Two structural points worth internalizing:
+
+- The **show** list is the wizard's page order; the **exec** list is the job order. They are independent, `summary` is shown before anything runs.
+- **`unpackfs`** is the heart of an offline installer: it copies the live root (the squashfs image the ISO booted from) onto the target disk, so installation works even without a network. Anything after it configures or repairs the copied system.
+
+## branding.desc, identity and slideshow
+
+`branding/parch/branding.desc` defines what the installer calls the OS and how it looks. Upstream-valid structure:
+
+<CodeBlock title="branding/parch/branding.desc (representative)">
+
+```yaml
+componentName: parch
+
+strings:
+    productName:         "Parch GNU/Linux"
+    shortProductName:    "Parch"
+    version:             "2026.10"
+    shortVersion:        "2026.10"
+    versionedName:       "Parch GNU/Linux 2026.10"
+    shortVersionedName:  "Parch 2026.10"
+    bootloaderEntryName: "Parch"
+
+images:
+    productLogo:  "parch-logo.png"
+    productIcon:  "parch-icon.png"
+    productWelcome: "welcome.png"
+
+slideshow: "show.qml"
+slideshowAPI: 2
+
+style:
+    SidebarBackground: "#1e1e2e"
+    SidebarText:       "#cdd6f4"
+    SidebarTextSelect: "#cba6f7"
+```
+
+</CodeBlock>
+
+The `strings` values surface all over the UI, `bootloaderEntryName`, for instance, is the name the installed system's boot entry gets. Bumping an ISO release usually means bumping `version`/`shortVersion` here and refreshing the slideshow images next to it.
+
+## Module configuration
+
+Each module reads its own YAML file from `modules/`. The values below are the Parch defaults these configs are shaped around; exact file contents live in calamares-parch.
+
+### locale, Persian-first defaults
+
+```yaml
+region: Asia
+zone: Tehran
+```
+
+The Parch flavors default the locale to `fa_IR.UTF-8` with the `Asia/Tehran` timezone, while still letting the user pick anything else from the map. This pairs with the live system's locale generation (the `40-locale-gen` pacman hook keeps locales valid, see [airootfs customization](/iso/airootfs-customization/)).
+
+### users, accounts and privileges
+
+```yaml
+defaultGroups:
+    - users
+    - wheel
+    - storage
+    - audio
+    - video
+    - network
+
+autologin: false
+hostName: parch
+userShell: /bin/bash
+sudoersGroup: wheel
+
+passwordRequirements:
+    nonempty: true
+    minLength: 6
+```
+
+`wheel` membership is what connects the created user to the live system's sudo rule (`airootfs/etc/sudoers.d/g_wheel`).
+
+### partition, disk layout defaults
+
+```yaml
+efiSystemPartition: /boot
+efiSystemPartitionSize: 512M
+defaultFileSystemType: ext4
+userSwapChoices:
+    - none
+    - small
+    - suspend
+    - file
+```
+
+The UEFI layout is an ESP of 512 MiB (FAT32) mounted at `/boot`. `userSwapChoices` limits what the "erase disk" mode offers. Manual partitioning is always available alongside these defaults; LUKS handling can be enabled via `enableLuksAutomatedPartitioning`.
+
+### welcome, requirements check
+
+```yaml
+showSupportUrl: true
+showKnownIssuesUrl: false
+showReleaseNotesUrl: false
+showDonateUrl: false
+
+requirements:
+    requiredStorage: 8
+    requiredMemory: 2
+```
+
+The welcome page checks the machine against the requirements before the user gets attached to the idea of installing.
+
+### finished, the end page
+
+```yaml
+restartNow: true
+```
+
+The finished page offers an immediate reboot into the fresh system.
+
+### summary and services-systemd
+
+`summary.conf` is typically near-empty, the module renders the collected choices automatically. The `services-systemd` job (in the exec phase) re-enables services on the *installed* system, carrying over what the live environment enabled via symlinks; its `units` entries use the upstream `name`/`action`/`mandatory` form. See the calamares-parch repo for the current unit list.
+
+## Offline installation considerations
+
+Parch installs offline-first, and the design shows up in a few places:
+
+- **`unpackfs` copies the running live system**, the installed system starts life identical to the live environment, no network required.
+- **Live-only leftovers are cleaned by the packages module.** A `packages` entry in the exec sequence uses the upstream form to remove things that make no sense on an installed system, for example:
+
+  ```yaml
+  backend: pacman
+  operations:
+    - remove:
+        - archiso
+  ```
+
+  (The real list is maintained in calamares-parch; the pattern is what matters here.)
+- **Online steps degrade gracefully but depend on network.** Anything that adds packages beyond the copied root (for example extra package operations) needs the live session's network to be up, the same `world` repository the ISO was built with is reachable from the installed pacman configuration.
+- **Locale and hostname are set from configuration, not detection.** The `machineid`, `localecfg`, and `networkcfg` jobs generate the installed system's identity files from the module settings above.
+
+## Debugging Calamares
+
+Run from a terminal in the live session:
+
+<CodeBlock title="Debug a failed or suspicious install">
+
+```bash
+$ sudo calamares -d
+```
+
+</CodeBlock>
+
+`-d` enables debug output and verbose module logging in the terminal. The persistent log is at **`/var/log/calamares/calamares.log`**, search it when a module fails:
+
+```bash
+$ grep -iE "error|failed" /var/log/calamares/calamares.log | tail -50
+```
+
+Common failure patterns:
+
+- **Fails at partitioning**, check the disk actually has no mounted partitions (`findmnt`), and on UEFI confirm the firmware variables are accessible (`efivar -l`). In QEMU tests, an OVMF booted without a disk image attached will fail here.
+- **Fails at the bootloader job**, the ESP was not mounted at `/boot`, or Secure Boot blocks the unsigned bootloader (`mokutil --sb-state` in a live terminal).
+- **Fails after download/start of exec**, usually the target disk ran out of space, or a remove operation in the packages module named a package that is not installed; the log names the exact job.
+- **Config errors at startup**, YAML syntax errors in `/etc/calamares/` fail fast and visibly; validate the file you just edited (`python -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" /etc/calamares/settings.conf`).
+
+To test configuration changes without installing anything, edit the files in the live session and relaunch `sudo calamares -d`; to make changes permanent, put them in `airootfs/etc/calamares/` in the profile and rebuild (see [airootfs customization](/iso/airootfs-customization/)).
+
+## Expected results
+
+- The installer launches from the live session (desktop editions auto-open it via the welcome tool), shows Parch branding, and defaults to `fa_IR`/`Asia/Tehran` on the locale page.
+- An erase-disk install on a blank disk produces a bootable system with an ESP of 512 MiB at `/boot`, hostname `parch`, and the created user in `wheel`.
+- `/var/log/calamares/calamares.log` exists on both the live session and the installed system after an install attempt.
+
+## Troubleshooting summary
+
+- **Installer window fails to open**, run `sudo calamares -d` in a terminal and read the traceback; typically a YAML error in a just-edited module config.
+- **"No root file system is defined"**, the partition page got a manual layout without a `/` mount point; define one or use erase disk.
+- **Installed system boots to firmware**, bootloader job failure; check the log for the `bootloader`/`grubcfg` entries and confirm the ESP.
+- **A page is missing from the wizard**, the module name is not in the `show:` list of `settings.conf`, or the module is not installed.
+
+## Related pages
+
+- [airootfs customization](/iso/airootfs-customization/), the live-system side of the same configuration tree.
+- [Desktop profiles](/iso/desktop-profiles/), display-manager wiring that the `displaymanager` job relies on.
+- [Testing an ISO](/iso/testing-iso/), the full installer test checklist.
+- [Packaging](/packaging/), how calamares-parch itself is packaged and shipped via `world`.

@@ -1,0 +1,63 @@
+---
+title: "Testing l10n & a11y"
+description: "How to prove a build is translatable and accessible before release."
+order: 3
+---
+
+# Testing l10n & a11y
+
+Translation and accessibility failures are silent until someone affected
+hits them. These checks make them loud before release.
+
+## Translation completeness
+
+```bash
+# Compile statistics for each catalog
+$ msgfmt --statistics po/fa.po
+po/fa.po: 214 translated messages, 3 untranslated.
+```
+
+Policy for first-party apps: **zero untranslated strings in `fa` at
+release**. Untranslated strings fall back to English mid-sentence, which is
+worse than a fully English build for readers.
+
+## Runtime translation testing
+
+1. `LANG=fa_IR.UTF-8` run of the app: every screen read in Persian.
+2. Trigger dynamic strings: toasts, error messages, plural cases (0, 1, 2,
+   5, 100 updates).
+3. Mixed-direction content: package names, paths, URLs inside Persian
+   sentences render isolated and unbroken.
+4. Dialog and toast anchoring in RTL (they appear on the mirrored side).
+5. Desktop entry: launcher shows the Persian `Name[fa]`, search finds it
+   with Persian keywords.
+
+## Accessibility testing
+
+- **Keyboard-only walkthrough** of the primary flow, including dialogs and
+  menus (rules: [keyboard HIG](/hig/keyboard/)).
+- **Orca pass**: tab through the app and listen; every control announces
+  name, role, and state. Common finds: unlabeled icon buttons, custom
+  widgets with no accessible role.
+- **Contrast**: sample real text and controls in both themes against the
+  [contrast rules](/hig/accessibility/).
+- **Scaling**: 200% font scale without clipped or overlapping controls;
+  test with Estedad, which is taller than Latin fonts at the same size.
+- **Reduced motion**: with `prefers-reduced-motion` set, animations stop
+  and information does not depend on them.
+
+## Making it a gate
+
+Both passes belong in the [release checklist](/testing/testing-isos/) and
+in app PR descriptions:
+
+```text
+[ ] fa_IR: no untranslated strings (msgfmt --statistics clean)
+[ ] fa_IR: primary flow walked, RTL correct
+[ ] Keyboard-only primary flow complete
+[ ] Orca announces all primary controls
+[ ] Both themes pass contrast on real content
+```
+
+A PR that skips these and touches UI is returned for testing, not merged
+with a promise.

@@ -1,0 +1,46 @@
+---
+title: "Security"
+description: "Supply-chain trust, signing, build isolation, vulnerability handling, and release engineering."
+index: true
+order: 0
+---
+
+# Security
+
+This section is deliberately honest: it separates what Parch does today
+from what it should do. Security claims that outrun reality are themselves
+a vulnerability.
+
+## Status of record
+
+| Area | Status | Where |
+|---|---|---|
+| Source verification in PKGBUILDs (sha256) | **Practice** | [Dependency trust](/security/dependency-trust/) |
+| Clean chroot builds | **Practice** | [Build isolation](/security/build-isolation/) |
+| world/Void repositories | **Real, unsigned** | [Repository infrastructure](/distribution/repository-infrastructure/) |
+| Package/repo signing | **Proposed** | [Signing](/security/release-artifacts/) |
+| Automated ISO rebuilds in CI | **Real** | [CI/CD](/testing/ci-cd/) |
+| Reproducible builds end to end | **Aspiration** | [Release artifacts](/security/release-artifacts/) |
+| Vulnerability response process | **Informal, documented here** | [Vulnerability handling](/security/vulnerability-handling/) |
+
+## The honest picture
+
+Parch packages carry real sha256 checksums and are reviewed before entering
+the repositories. The repositories themselves are served unsigned over
+GitHub; users trust TLS and the repository account. ISOs ship with
+`md5sums.txt` rather than GPG signatures. These are known gaps, not hidden
+ones, and closing them (repo signing keys, signed sync databases, signed
+ISOs) is the direction described in the linked pages.
+
+## Principles that apply everywhere
+
+<Checklist>
+  - Verify every source: checksums in PKGBUILDs, `validpgpkeys` where
+    upstream signs releases.
+  - Build in isolation: clean chroots for packages, containers for ISOs.
+  - Least privilege in apps: polkit for privileged actions, never
+    sudo-in-a-loop (see [app security practices](/app-dev/security-practices/)).
+  - Secrets never in repositories, logs, or screenshots.
+  - Report vulnerabilities privately first
+    ([how](/security/vulnerability-handling/)).
+</Checklist>

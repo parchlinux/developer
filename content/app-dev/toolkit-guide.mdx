@@ -1,0 +1,153 @@
+---
+title: "Which toolkit should I use"
+description: "GTK4/libadwaita vs Qt6/KDE Frameworks vs terminal UI vs no GUI at all: what each path gives you on Parch and how to decide."
+order: 1
+source: "ch. 53, 56, 57"
+---
+
+# Which toolkit should I use
+
+There is no single Parch UI stack. The distribution runs Plasma, GNOME,
+Hyprland, and XFCE editions, and its first-party apps were written by
+different people with different language preferences. This page turns that
+fact into a decision procedure: four candidate paths, what each one buys you
+natively, and the trade-offs that actually matter on Parch.
+
+## The four paths
+
+| Path | Stack | Native on | Real Parch precedent |
+| --- | --- | --- | --- |
+| GTK | GTK4 + libadwaita | GNOME, XFCE, Hyprland editions | parch-welcome (Rust), PKM (Python) |
+| Qt/KDE | Qt6 + KDE Frameworks 6 | Plasma editions | plasma-setup (C++) |
+| Terminal UI or TUI | any language | every edition | none yet, CLI tools dominate |
+| No UI (CLI, service) | any language | every edition | parch-update, mirrorman |
+
+<Callout kind="important" title="One desktop, one toolkit">
+  Match the toolkit to the desktop your users run, not to the one you like.
+  A Qt6 app follows Breeze on Plasma automatically; a libadwaita app follows
+  the GNOME accent and dark style automatically. Cross-dressing (a Qt app
+  painted to look like libadwaita, or GTK code that hardcodes Breeze colors)
+  breaks the moment the user changes their theme. The
+  [platform integration HIG](/hig/platform-integration/) shows the intent
+  mapping for both.
+</Callout>
+
+## Path 1: GTK4 and libadwaita
+
+Choose this when your target is the GNOME, XFCE, or Hyprland editions, or
+when you want a single toolkit that behaves well across all of them.
+
+What you get natively:
+
+- **Widgets that already match Parch**: header bars, `Adw.Toast`,
+  `Adw.PreferencesGroup`, adaptive containers. You write almost no CSS.
+- **Portals by default**: GTK4 routes file dialogs, screenshots, and
+  settings through xdg-desktop-portal, which works identically on GNOME and
+  in Hyprland compositors.
+- **RTL and Persian for free**: text direction, mirroring, and shaping are
+  handled by Pango; you only follow the [RTL checklist](/hig/rtl-and-persian/).
+- **Settings without a schema server**: GSettings via dconf covers typical
+  app preferences.
+
+Costs and constraints:
+
+- libadwaita is opinionated. If you want heavy per-window theming, you will
+  fight it, and you should not win.
+- Python + PyGObject keeps iteration fast but adds GObject introspection to
+  your dependency list. Rust + gtk4-rs compiles to a self-contained binary
+  but has the steepest learning curve of the four paths.
+
+Bindings, in order of Parch precedent: Python (PyGObject), Rust (gtk4-rs),
+C. Start from [GTK apps](/app-dev/gtk-apps/) for Python or
+[Rust apps](/app-dev/rust-apps/) for Rust.
+
+## Path 2: Qt6 and KDE Frameworks 6
+
+Choose this when your target is the Plasma editions, when you need
+KDE-integrated behaviors (KConfig, KNotifications, KXmlGui windows, KCM
+settings modules), or when you are extending an existing C++/Qt codebase.
+
+What you get natively:
+
+- **Breeze styling and Plasma behaviors** without any theming code, plus
+  Kirigami if you want adaptive layout in QML.
+- **KDE Frameworks pieces that solve real problems**: KConfig for
+  preferences, KActionCollection for shortcut management, ki18n for
+  translations with correct plural handling.
+- **A mature CMake build story** through extra-cmake-modules (ECM), which
+  also generates metainfo and version headers.
+
+Costs and constraints:
+
+- The dependency footprint is real: every KF6 library you pull in becomes a
+  runtime dependency of your package.
+- Two binding families exist, PyQt6 and PySide6, with slightly different
+  licenses (GPL versus LGPL); pick one and say so in the package license.
+- Qt charts, multimedia, and web engines are separate Arch packages
+  (`qt6-5compat`, `qt6-multimedia`, and friends), not part of `qt6-base`.
+
+Start from [Qt and KDE apps](/app-dev/qt-kde-apps/).
+
+<Callout kind="warning" title="KF5 names in older documents">
+  Some older handbook chapters still show KF5 package names. New
+  applications target Qt6 and KF6 (`kcoreaddons`, `ki18n`,
+  `extra-cmake-modules`). KF5 remains in the repos for legacy software but
+  is not the path for anything new.
+</Callout>
+
+## Path 3: a terminal UI
+
+A TUI (Textual for Python, ratatui for Rust, ncurses for C) is the right
+call when the tool runs over SSH, inside scripts, or on the minimal and
+lite editions. It shares almost everything with the plain-CLI path below:
+arg parsing, exit codes, logging, packaging. What it adds is interaction,
+and what it costs is a dependency on terminal capabilities you must test
+against common emulators (kitty, konsole, gnome-terminal).
+
+## Path 4: no GUI at all
+
+Most Parch system software is a CLI or a daemon. Choose this when the app is
+scripted by other tools, runs in a systemd unit, or does one job well.
+
+Signs you belong here:
+
+- The input is files, package names, or config, not user interaction.
+- The tool must run on every edition, including servers and the lite ISO.
+- You want the smallest possible dependency tree for security review
+  (see [security practices](/app-dev/security-practices/)).
+
+What you get: trivial packaging, trivial localization (gettext works the
+same), direct journald logging, and exit codes that scripts can trust. The
+[Python apps](/app-dev/python-apps/) and [Rust apps](/app-dev/rust-apps/)
+pages both cover the CLI idiom.
+
+## Language considerations independent of toolkit
+
+| Language | Best when | Watch out for |
+| --- | --- | --- |
+| Python | fast iteration, scripting glue, small GUI tools | startup time, dependency discipline (never vendor or pip-install system-wide) |
+| Rust | memory safety, single binaries, GTK apps like parch-welcome | compile times, learning curve for async and GObject |
+| C++/Qt | KDE-native features, existing Qt codebases | build system complexity, manual memory care |
+| C | minimal-footprint system tools | no framework safety nets, slower development |
+
+## Decision checklist
+
+<Checklist>
+  - Which edition is the primary target? That usually decides GTK or Qt.
+  - Does a Parch precedent app already use this stack for this job? Follow it.
+  - Does the app need privileged operations? Plan the polkit split now, see
+    [security practices](/app-dev/security-practices/).
+  - Will Persian ship with the first release? First-party apps require it,
+    see [localization](/app-dev/localization/).
+  - Can the job be done without a window at all? Then it probably should.
+</Checklist>
+
+## Related pages
+
+- [GTK apps](/app-dev/gtk-apps/): the full Python + libadwaita tutorial.
+- [Qt and KDE apps](/app-dev/qt-kde-apps/): the Qt6/KF6 tutorial.
+- [Rust apps](/app-dev/rust-apps/) and [Python apps](/app-dev/python-apps/):
+  language-side details and packaging.
+- [Desktop integration](/app-dev/desktop-integration/): the metadata every
+  GUI app needs regardless of toolkit.
+- [HIG](/hig/): the design rules both toolkits must satisfy.

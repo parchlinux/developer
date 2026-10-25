@@ -1,0 +1,99 @@
+---
+title: "Desktop profiles"
+description: "How the Plasma, GNOME, Xfce, Hyprland, and other Parch editions differ, packages, display managers, theming, and what to change when building a new desktop edition."
+order: 8
+source: "ch. 11, 16, 18, 68; live parch-iso-* repositories"
+---
+
+# Desktop profiles
+
+Every Parch edition is the same skeleton with a different desktop stacked on top. Once you can read one edition, you can read them all, the differences concentrate in four places: the package list, the display manager, user defaults in `/etc/skel`, and the theming packages pulled from the `world` repository.
+
+## How the editions differ
+
+| Edition | Desktop | Display manager | Signature packages |
+| --- | --- | --- | --- |
+| `parch-iso-plasma` | KDE Plasma | SDDM | `plasma` group, `parch-sddm`, `parch-plymouth` |
+| `Parch-iso-gnome` | GNOME | GDM | `gnome` group, `gnome-parch` |
+| `parch-iso-xfce` | Xfce | LightDM | `xfce4`, `xfce4-goodies` |
+| `parch-iso-hyprland` | Hyprland (Wayland) | SDDM | `hyprland`, `waybar`, `kitty`, `wofi` |
+| `parch-iso-cosmic` | COSMIC | COSMIC's greeter | `cosmic` session packages |
+| `parch-iso-dwm` | dwm | none/console | `dwm` + suckless tools |
+| `parch-iso-mini` / `parch-iso-lite` | Reduced desktop | varies | trimmed variants of the above |
+| `parch-iso-base`, `parch-iso-template` | none (CLI) | none | getty autologin only |
+
+Exact package names drift as packages are renamed or split, treat the table as the map, and `packages.x86_64` in each repo as the territory. For the current state of the theme/meta packages, check the `world` repository listing (see [Package lists](/iso/packages-x86_64/)).
+
+## Plasma (`parch-iso-plasma`)
+
+The flagship. The package list pulls the Plasma group (KWin, Plasma Shell, Dolphin, Konsole), Plasma Wayland session support, and Parch theming:
+
+- **`parch-sddm`**, the Parch SDDM theme, so the login screen matches the desktop.
+- **`parch-plymouth`**, the Parch boot splash (see below).
+- **`parch-grub-theme`**, the Parch GRUB look for the boot menu.
+
+Display-manager wiring is SDDM: the profile ships the `display-manager.service` symlink to `sddm.service` and the autologin drop-in at `airootfs/etc/sddm.conf.d/autologin.conf` with `Session=plasma`.
+
+User defaults land in `airootfs/etc/skel/.config/`: `kdeglobals` for colors and widget style, `plasmarc` for panel layout, and friends. Files in `/etc/skel` are copied to the live user's home *and* to the home of the user Calamares creates during installation, so skel is the single place a desktop's default look is defined.
+
+## GNOME (`Parch-iso-gnome`)
+
+Same skeleton, GNOME instead: the `gnome` group provides GNOME Shell and core apps, and GDM replaces SDDM as the display manager (with its own `display-manager.service` symlink and autologin configuration, GDM uses `airootfs/etc/gdm/custom.conf` with `AutomaticLogin` for live sessions). The Parch look comes from the **`gnome-parch`** theme package, which carries the GNOME shell theme, icons, and wallpaper integration.
+
+GNOME defaults are best shipped as dconf keyfiles under `airootfs/etc/dconf/db/local.d/` (theme, wallpaper, extensions), applied system-wide with `dconf update`.
+
+## Xfce (`parch-iso-xfce`)
+
+The lightweight GTK edition: `xfce4` plus `xfce4-goodies`, with **LightDM** and `lightdm-gtk-greeter` as the display manager. Xfce settings are shipped as xfconf channel files under `airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/`, panel layout, desktop settings, and window manager preferences are all plain XML.
+
+## Hyprland (`parch-iso-hyprland`)
+
+The tiling Wayland edition. There is no full desktop group, the list names the compositor and its companions: `hyprland`, `waybar` (status bar), `kitty` (terminal), `wofi` (launcher), `dunst` (notifications), `polkit-kde-agent`, and Qt Wayland support. Configuration lives in `airootfs/etc/skel/.config/hypr/hyprland.conf` (keybinds, autostart with `exec-once`, window rules) and `airootfs/etc/skel/.config/waybar/`. Sessions are reached through SDDM with `Session=hyprland`.
+
+## Plymouth and the graphical boot
+
+Desktop editions boot to a splash instead of console text. The pieces:
+
+- **`parch-plymouth`** from `world`, the Parch splash theme (the handbook also names an alternative animated theme, `parch-plymouth-waves`).
+- The **`plymouth` mkinitcpio hook** in the airootfs mkinitcpio configuration, placed right after `udev` so graphics device nodes exist before the splash starts.
+- Kernel parameters in the boot entries (see [Bootloader configuration](/iso/bootloader-config/)): `quiet splash loglevel=3` for a clean, flicker-free transition.
+
+The active theme is selected in `airootfs/etc/plymouth/plymouthd.conf` (`Theme=parch-plymouth`). If you swap kernels or themes, remember early KMS matters too: the appropriate driver module (`i915`, `amdgpu`) belongs in the mkinitcpio MODULES array for a smooth handoff.
+
+## Making a new desktop edition
+
+Everything below assumes you forked an existing profile rather than starting from nothing, see the [Custom edition tutorial](/iso/custom-edition-tutorial/) for the full walkthrough.
+
+<Checklist>
+  <p>**Swap the package set**: remove the old desktop group from `packages.x86_64`, add the new one plus its display manager, and keep exactly one display manager.</p>
+  <p>**Repoint the display-manager symlink**: `airootfs/etc/systemd/system/display-manager.service` must link to your DM's unit (`sddm.service`, `gdm.service`, `lightdm.service`, ...).</p>
+  <p>**Fix autologin**: SDDM editions set `Session=` in `airootfs/etc/sddm.conf.d/autologin.conf`; GDM editions set `AutomaticLogin` in `etc/gdm/custom.conf`. The session name must match an installed session desktop file.</p>
+  <p>**Ship user defaults in `/etc/skel`**: desktop configuration for the new environment under `airootfs/etc/skel/.config/`.</p>
+  <p>**Keep the theme packages coherent**: add the matching Parch theme (`parch-sddm` for SDDM, `gnome-parch` for GNOME, `parch-grub-theme` and `parch-plymouth` for branding) and remove ones tied to the old desktop.</p>
+  <p>**Update Calamares branding** if the edition has its own look: slideshow and branding live under `airootfs/etc/calamares/` (see [Calamares installer](/iso/calamares-installer/)).</p>
+  <p>**Rename the ISO**: `iso_name`, `iso_label`, and `iso_publisher` in `profiledef.sh`.</p>
+  <p>**Build and test both firmwares in QEMU**, then a real installer run to disk (see [Testing an ISO](/iso/testing-iso/)).</p>
+</Checklist>
+
+<Callout kind="tip" title="Reuse, do not fork-and-forget">
+  The editions share live-environment plumbing (autologin, networkd, hooks, live scripts). When you fix something structural, a broken hook, a kernel parameter, land it in `parch-iso-template` and propagate to the editions, rather than fixing each fork separately. The template is the proving ground; see [Profile structure](/iso/profile-structure/).
+</Callout>
+
+## Expected results
+
+- A new edition boots to *its* display manager with autologin working and the Parch theme visible on the login screen, boot splash, and GRUB menu.
+- The Calamares installation produces a system where the created user gets the same desktop defaults (because they came from `/etc/skel`).
+
+## Troubleshooting
+
+- **Boots to a black screen with a blinking cursor**, the `display-manager.service` symlink points at a DM that is not installed, or the SDDM `Session=` name has no matching session file. Check `ls /usr/share/wayland-sessions/ /usr/share/xsessions/` in the live VM.
+- **Login screen shows but the default theme does not**, the theme package is missing from `packages.x86_64`, or the SDDM/GDM configuration references a theme name that the package does not provide.
+- **Two display managers fight at boot**, you added a DM but left the old one in the list; exactly one should remain.
+- **Splash never appears / console text flashes instead**, the `plymouth` hook is missing from the mkinitcpio configuration, or `quiet splash` was dropped from the kernel command line.
+- **User defaults ignored after install**, files were placed in a user's home in `airootfs/` instead of `/etc/skel/`; homes for *created* users come only from skel.
+
+## Related pages
+
+- [Package lists](/iso/packages-x86_64/), where the desktop groups and theme packages are listed.
+- [airootfs customization](/iso/airootfs-customization/), autologin and skel mechanics in depth.
+- [Bootloader configuration](/iso/bootloader-config/), GRUB theme wiring and splash parameters.

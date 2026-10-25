@@ -1,0 +1,36 @@
+---
+title: "Motion"
+description: "Durations, curves, and what may (and may not) animate."
+order: 7
+---
+
+# Motion
+
+Motion in Parch is feedback: it confirms an action happened or shows where a
+change came from. It never entertains.
+
+<Checklist>
+  - **Durations:** 150ms for hover/press/state changes; 250ms for enter/exit
+    transitions (dialogs, drawers, toasts).
+  - **Curve:** soft-out `cubic-bezier(0.2, 0.8, 0.2, 1)`. Nothing bounces.
+  - **Transform and opacity only.** Never animate width, height, or layout
+    properties, they jank and fight resize.
+  - **Respect `prefers-reduced-motion`:** the portal disables all transitions
+    under it; applications must do the same (GTK: `gtk-enable-animations`;
+    Qt: platform theme reduced-motion flag).
+</Checklist>
+
+## What may animate
+
+- Pressed/hover states on buttons and rows.
+- Drawer and dialog enter/exit.
+- Progress bars and indeterminate sweeps.
+- Cross-fades between peer views (optional, 150ms).
+
+## What may not
+
+- Loops other than the indeterminate progress sweep.
+- Decorative parallax, pulsing brand elements, animated gradients.
+- Entrance animations on data the user asked to see (loading spinners already
+  communicate the wait).
+- Anything over 300ms.

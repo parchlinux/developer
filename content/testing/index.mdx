@@ -1,0 +1,69 @@
+---
+title: "Testing & QA"
+description: "Test plans and methods for applications, packages, and ISO releases."
+index: true
+order: 0
+---
+
+# Testing & QA
+
+Parch has no dedicated QA team: quality comes from conventions every
+contributor follows. This section turns those conventions into concrete,
+reusable test plans.
+
+<CardGrid>
+  <Card title="Testing applications" href="/testing/testing-applications/">
+    Unit, integration, GUI, accessibility, and localization testing for apps.
+  </Card>
+  <Card title="Testing packages" href="/testing/testing-packages/">
+    The package test plan: build, install, upgrade, remove, and dependency
+    validation.
+  </Card>
+  <Card title="Testing ISOs" href="/testing/testing-isos/">
+    The ISO release test plan: boot, installer, post-install, and hardware.
+  </Card>
+  <Card title="CI/CD" href="/testing/ci-cd/">
+    GitHub Actions as Parch uses it: ISO builds per release and app CI.
+  </Card>
+  <Card title="Performance & hardware" href="/testing/performance-hardware/">
+    Boot time, resource budgets, and real-hardware compatibility passes.
+  </Card>
+</CardGrid>
+
+## The three canonical test plans
+
+Everything else is a variation of three plans. Copy them into your PR
+description and tick the boxes:
+
+<Steps>
+  <Step title="Application plan">
+    Build from clean checkout, unit tests pass, launch on Wayland, exercise
+    the primary flow, keyboard-only pass, dark theme, Persian locale, then
+    package it and repeat after `pacman -U`.
+  </Step>
+  <Step title="Package plan">
+    Clean chroot build, `namcap` clean, install/upgrade/remove cycle, file
+    list review, dependency check (`ldd` for binaries), desktop file
+    validation. Detail in [testing packages](/testing/testing-packages/).
+  </Step>
+  <Step title="ISO plan">
+    Build from the profile, boot in QEMU (BIOS and UEFI), installer run with
+    auto and manual partitioning, post-install boot and update, then one
+    real-hardware pass before release. Detail in
+    [testing ISOs](/testing/testing-isos/).
+  </Step>
+</Steps>
+
+## Principles
+
+<Checklist>
+  - **Test on a system that looks like a user's:** current packages, one
+    desktop, real fonts. A pristine build machine hides integration bugs.
+  - **Write down what you tested.** Untested claims do not count; the PR
+    description is the test report.
+  - **Automate the boring parts** (builds, linting, boot smoke tests) and
+    spend human attention on the parts that need judgment (UX, RTL,
+    installer edge cases).
+  - **Regressions get tests.** Every bug that ships once should be caught
+    automatically the second time.
+</Checklist>

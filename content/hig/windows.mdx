@@ -1,0 +1,49 @@
+---
+title: "Windows & header bars"
+description: "Main windows, header bars, toolbars, and multi-window behavior."
+order: 11
+---
+
+# Windows & header bars
+
+## Main window anatomy
+
+A Parch application window is header bar → optional toolbar → body. Header
+bars use `--surface-2`, carry the app icon + title start-aligned and window
+controls end-aligned, and never scroll away.
+
+```
+┌──────────────────────────────────────────┐
+│ [icon] Title                     – □ ✕   │  header bar
+├──────────────────────────────────────────┤
+│ toolbar / tabs (optional)                │
+├────────┬─────────────────────────────────┤
+│ sidebar│ body                            │
+└────────┴─────────────────────────────────┘
+```
+
+## Header bar rules
+
+<Checklist>
+  - Title is the document or view name, not the app name (the taskbar shows
+    the app).
+  - The primary view action may live in the header bar (e.g. Install);
+    secondary actions collapse into a menu.
+  - No more than two buttons plus one menu in a header bar.
+  - In RTL, the whole bar mirrors: window controls end up start-aligned.
+</Checklist>
+
+## Toolbars
+
+Toolbars repeat frequent body actions with icon buttons (flat variant). They
+may scroll with content. If you can't name the five actions that deserve
+toolbar space, don't ship a toolbar.
+
+## Windows and dialogs
+
+- One main window per task; supporting views open dialogs, not extra windows.
+- Remember window size and position per app.
+- Closing a window with unsaved changes prompts, see
+  [Unsaved changes](/hig/unsaved-changes/).
+
+See full-window examples in the [mock gallery](/mockups/).

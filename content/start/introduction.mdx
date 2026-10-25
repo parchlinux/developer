@@ -1,0 +1,65 @@
+---
+title: "Introduction to Parch"
+description: "What Parch GNU/Linux is, where it comes from, and how it relates to Arch Linux."
+order: 1
+source: "ch. 2, 5"
+---
+
+# Introduction to Parch
+
+Parch GNU/Linux is an Arch Linux-based distribution that pairs the Arch
+package ecosystem with opinionated defaults: a curated desktop experience,
+KDE Plasma as the flagship environment, and first-class Persian-language
+support for Iran and Persian speakers worldwide.
+
+## What Parch adds to Arch
+
+| Layer | Arch provides | Parch adds |
+|---|---|---|
+| Packages | core, extra, multilib repos | [world](https://github.com/parchlinux/world) repo with Parch-built packages |
+| ISO images | upstream archiso profiles | Per-edition profiles (`parch-iso-plasma`, `Parch-iso-gnome`, …) |
+| Installer | archinstall / manual install | Calamares (Parch flavor) with fa_IR defaults |
+| Desktop | stock KDE/GNOME/XFCE | Parch themes: parch-sddm, parch-grub-theme, parch-plymouth, gnome-parch |
+| First-party apps | none | Pastor (Store), parch-welcome, parch-update, PKM, mirrorman, and more |
+| Localization | upstream i18n | Persian fonts (Estedad), fa_IR locale defaults, RTL-aware tooling |
+
+## Rolling release, Arch-based
+
+Parch follows the Arch rolling-release model: there are no version numbers to
+upgrade across, and packages track upstream closely. The practical
+consequences for developers:
+
+- **Test against a current system.** Build and run on an up-to-date machine;
+  `pacman -Syu` before building (never `-Sy` alone, which creates partial
+  upgrades).
+- **Expect upstream change.** Library sonames, Python versions, and kernel
+  ABI move under you; packages must rebuild when they do.
+- **Parch layers on top, it does not fork.** Most packages come unmodified
+  from Arch repositories. Parch-specific packages live in `world`, and
+  Parch-modified packages (like the Parch-flavored Calamares) are rebuilt
+  with downstream patches.
+
+<Callout kind="important" title="Upstream first">
+  Behavior that comes from Arch is documented upstream. This portal focuses
+  on what Parch adds or changes; when a page explains Arch behavior, it
+  links to the authoritative upstream source.
+</Callout>
+
+## The ecosystem map
+
+- **Distribution:** ISO profiles, installer, themes (see
+  [Platform Architecture](/architecture/)).
+- **Applications:** Pastor and friends (see [Application Development](/app-dev/)).
+- **Infrastructure:** the world repository, mirrors (see
+  [Distribution Development](/distribution/)).
+- **Community:** [forum.parchlinux.com](https://forum.parchlinux.com),
+  [wiki.parchlinux.com](https://wiki.parchlinux.com),
+  [Matrix](https://matrix.to/#/%23parchlinux:matrix.org),
+  [GitHub organization](https://github.com/parchlinux).
+
+## Who this portal is for
+
+Application developers, package maintainers, ISO builders, designers, and
+distribution contributors. Start with
+[Set up your workstation](/start/workstation-setup/), then follow your path
+from the [portal home](/).

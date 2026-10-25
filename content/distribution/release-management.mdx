@@ -1,0 +1,70 @@
+---
+title: "Release management"
+description: "How editions ship, roll back, and communicate change on a rolling release."
+order: 6
+source: "ch. 40, 42, 46, 66"
+---
+
+# Release management
+
+Parch is a rolling distribution, but its ISOs ship as discrete, tagged
+releases. Release management is the craft of making those two facts
+coexist.
+
+## What a release is
+
+- A **git tag** on an ISO profile repository (for example
+  `parch-iso-plasma`), which triggers the CI build
+  ([release automation](/iso/release-automation/)).
+- A **GitHub release** carrying the built ISO (as 7z multi-volume archives
+  with `md5sums.txt`) and release notes.
+- Pre-releases additionally publish `Parchlinux-test-latest.iso` to the
+  test location on `mirror.parchlinux.com` for public testing before the
+  stable tag.
+
+## Rolling and releasing
+
+The repositories roll continuously; the ISO is a snapshot. That gives
+users two contracts:
+
+1. **Installed systems:** update with `pacman -Syu` at any time; release
+   tags do not gate them.
+2. **ISOs:** a fresh install gets the snapshot of its release date; the
+   first `pacman -Syu` rolls it forward.
+
+Release notes therefore describe the *snapshot difference*: what changed in
+editions, what needs attention (breaking changes, manual steps), and known
+issues. The [rolling maintenance guide](/distribution/release-management/)
+patterns apply:
+
+<Checklist>
+  - Announce breaking changes before they ship: a wiki post and a forum
+    note when a change requires user action (moved config, replaced
+    package).
+  - Prefer transition packages and hooks over "read the news" steps;
+    automate what can be automated.
+  - Keep a rollback path: previous ISO remains downloadable; repository
+    git history allows targeted reverts.
+  - After release, watch the issue trackers and the forum for the first
+    week; hotfix ISOs only for installer-breaking regressions.
+</Checklist>
+
+## Stability labels
+
+| Channel | Meaning | Where |
+|---|---|---|
+| world | Stable, reviewed packages | Default for all users |
+| Void | Testing, may break | Opt-in ([repositories](/architecture/repositories/)) |
+| Test ISOs | Pre-release installer images | `mirror.parchlinux.com/test/` |
+| GitHub pre-releases | Tagged but not stable | Per ISO repo |
+
+## The release checklist
+
+1. All planned PRs merged; CI green on main.
+2. Pre-release cut and test ISO installed on real hardware (BIOS and UEFI).
+3. Installer walkthrough on a clean VM, both auto and manual partitioning.
+4. Release notes drafted: changes, attention points, checksums.
+5. Stable tag; CI attaches artifacts; links updated on
+   [parchlinux.com](https://parchlinux.com).
+6. Post-release: monitor issues, respond, and record lessons for the next
+   cycle in the [testing handbook](/testing/).

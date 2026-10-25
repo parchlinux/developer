@@ -1,0 +1,38 @@
+---
+title: "Unsaved changes & first run"
+description: "Protecting user work and designing the first-run experience."
+order: 22
+---
+
+# Unsaved changes & first run
+
+## Unsaved changes
+
+<Checklist>
+  - Closing a view with unsaved work prompts: discard / cancel / save. The
+    safe default is cancel.
+  - The prompt names what will be lost (“Discard changes to profile X?”).
+  - Document-like apps autosave drafts and say so; settings pages apply
+    immediately so there is nothing to lose.
+  - <kbd>Ctrl</kbd>+<kbd>W</kbd> during an edit hits the same prompt as the
+    close button.
+</Checklist>
+
+## First run
+
+The first launch of any Parch app should end with the user doing the main
+thing within 30 seconds:
+
+<Checklist>
+  - Lead with one guided primary action, not a tutorial carousel.
+  - Parch Welcome covers system-level onboarding (drivers, updates, docs) ,
+    individual apps should not repeat it.
+  - Sensible defaults mean first run mostly configures nothing.
+  - If an app needs a system service or permission, it offers to set it up
+    (polkit prompt) rather than failing later.
+  - Provide the Persian interface from the first frame, not after a settings
+    detour, follow the system locale.
+</Checklist>
+
+Reference: the [Welcome mock](/mockups/welcome/) for the system-level
+first-run pattern.

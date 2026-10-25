@@ -1,0 +1,41 @@
+---
+title: "Materials: radii, borders & elevation"
+description: "How Parch surfaces separate: hairlines first, shadows second."
+order: 5
+---
+
+
+# Materials: radii, borders & elevation
+
+Parch surfaces are quiet. Separation comes from 1px hairlines and surface
+color shifts first; shadows are reserved for things that truly float.
+
+<SpecTable
+  columns={["Token", "Value", "Applies to"]}
+  rows={[
+    ["--radius-sm", "6px", "Chips, small buttons, inline code"],
+    ["--radius-md", "10px", "Cards, inputs, images, popovers"],
+    ["--radius-lg", "14px", "Dialogs, large modals"],
+    ["--radius-window", "16px", "Application windows, mock frames"],
+    ["--border", "1px hairline", "All container separation"],
+    ["--shadow-card", "soft 24px", "Resting cards (subtle)"],
+    ["--shadow-raised", "soft 40px", "Hovered cards, dialogs, toasts"],
+  ]}
+/>
+
+## Rules
+
+<Checklist>
+  - Nested radii follow the geometry: inner radius = outer radius − padding.
+  - Borders and shadows never both on the same element at rest.
+  - Dialogs and popovers are the only elements that may cast `--shadow-raised`
+    at rest.
+  - Hover raises by one step: surface → surface-2, or border-strong; no scale
+    jumps larger than 2%.
+</Checklist>
+
+## Elevation in dark mode
+
+Dark mode reads elevation through **lightness**, not shadow: background →
+surface → surface-2 get progressively lighter. Shadows still exist but are
+barely visible; do not compensate by darkening borders everywhere.

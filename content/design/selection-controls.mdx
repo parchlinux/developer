@@ -1,0 +1,60 @@
+---
+title: "Selection controls"
+description: "Switches, checkboxes, radio groups, and dropdown selection."
+order: 4
+---
+
+
+# Selection controls
+
+Choosing the right control is a semantics decision:
+
+<Checklist>
+  - **Switch**, an effect applies immediately (a setting flips live).
+  - **Checkbox**, one or more independent options; effect applies on commit.
+  - **Radio group**, exactly one choice from 2–5 visible options.
+  - **Dropdown**, one choice from many, or when space is tight.
+</Checklist>
+
+<Demo>
+  <DemoStage name="selection-controls" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - A switch that requires “Save” to apply is a checkbox, don't fake instant
+    behavior.
+  - Show a parent checkbox as **indeterminate** when children are partially
+    selected.
+  - Radio and checkbox hit targets include the label, not just the control.
+  - Dropdowns keep the selected item marked with a check and close on Esc.
+</Checklist>
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-[0.875rem]">Dark style</span>
+        <span className="relative h-6 w-10 rounded-full border border-accent bg-accent">
+          <span className="absolute right-1 top-1/2 size-4 -translate-y-1/2 rounded-full bg-white" />
+        </span>
+      </div>
+    ),
+    caption: "Immediate effect, a switch is correct.",
+  }}
+  dont={{
+    children: (
+      <div className="flex flex-col gap-2">
+        <span className="text-[0.875rem]">License agreement</span>
+        <div className="flex items-center gap-2">
+          <span className="relative h-6 w-10 rounded-full border border-border-strong bg-surface-3">
+            <span className="absolute left-0.5 top-1/2 size-4 -translate-y-1/2 rounded-full bg-white shadow" />
+          </span>
+          <span className="text-[0.85rem] text-text-muted">I agree to the terms</span>
+        </div>
+      </div>
+    ),
+    caption: "Consent is a commitment, not a live setting, use a checkbox.",
+  }}
+/>

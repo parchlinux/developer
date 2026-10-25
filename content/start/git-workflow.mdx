@@ -1,0 +1,70 @@
+---
+title: "Git workflow"
+description: "How the Parch GitHub organization is structured and how changes flow."
+order: 3
+source: "ch. 3, 67"
+---
+
+# Git workflow
+
+Parch develops in the open on GitHub at
+[github.com/parchlinux](https://github.com/parchlinux). There is no
+patch-queue or internal review system: if it is not on GitHub, it does not
+exist.
+
+## Repository layout
+
+<Checklist>
+  - **ISO profiles:** one repo per edition (`parch-iso-plasma`,
+    `Parch-iso-gnome`, `parch-iso-hyprland`, `parch-iso-xfce`,
+    `parch-iso-mini`, `parch-iso-lite`, `parch-iso-base`,
+    `parch-iso-template`, and WIP editions like `parch-iso-cosmic`).
+  - **Package sources:** `pkgbuilds` holds PKGBUILDs; the binary artifacts
+    land in the `world` repo, with `Void` as the testing ground.
+  - **First-party apps:** one repo per app (`pastor`, `parch-welcome`,
+    `parch-update`, `PKM` for the Kernel Manager, `mirrorman`, `gamehub`,
+    `pordle`, `parchdroid`, …).
+  - **System components:** `calamares-parch`, `base-config`,
+    `parch-config`, `gnome-parch`, `parch-sddm`, `parch-grub-theme`.
+  - **Process:** `contributing`, `rfcs`, `handbook`, and this portal.
+</Checklist>
+
+## Contribution flow
+
+1. **Fork and branch.** Fork the repo, create a topic branch
+   (`feat/store-search`, `fix/iso-broadcom-headers`).
+2. **Commit in logical units.** Follow Conventional Commit style as used
+   across the org: `feat:`, `fix:`, `docs:`, `iso:`, `pkg:`.
+3. **Test locally** (package builds, ISO boot, or app runtime, depending on
+   the repo).
+4. **Open a pull request** against the upstream repo with a description of
+   what changed and how you tested it.
+5. **Review.** A maintainer reviews; CI builds ISO repos on release tags.
+6. **Merge and release.** For ISO repos, releases trigger the automated
+   build (see [Release automation](/iso/release-automation/)).
+
+## Working with an ISO profile repo
+
+```bash
+$ git clone https://github.com/parchlinux/parch-iso-template.git
+$ cd parch-iso-template
+$ git checkout -b my-customization
+```
+
+Keep profile changes in small commits so a build regression can be bisected
+quickly.
+
+## Forks and mirrors
+
+Personal forks are welcome for experimentation. Do not publish ISOs from
+personal forks with Parch branding; see the
+[custom edition tutorial](/iso/custom-edition-tutorial/) for renaming
+guidance.
+
+## Issues and discussion
+
+- Bugs and feature requests: the repo's issue tracker.
+- Cross-cutting proposals: the [rfcs](https://github.com/parchlinux/rfcs)
+  repo.
+- General discussion: [forum.parchlinux.com](https://forum.parchlinux.com)
+  and [Matrix](https://matrix.to/#/%23parchlinux:matrix.org).

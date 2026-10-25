@@ -1,0 +1,118 @@
+---
+title: "Your first package"
+description: "Write, build, and test a PKGBUILD with makepkg in fifteen minutes."
+order: 5
+---
+
+# Your first package
+
+This tutorial packages a small shell utility, `parch-notes`, a one-file CLI
+for keeping notes in `~/.local/share/notes.txt`. You will touch the whole
+lifecycle: write the PKGBUILD, build, install, test, remove. The full
+reference is the [Packaging](/packaging/) section.
+
+## 1. Prepare
+
+```bash
+$ sudo pacman -S --needed base-devel namcap
+$ mkdir -p ~/packages/parch-notes && cd ~/packages/parch-notes
+```
+
+## 2. Write the PKGBUILD
+
+```bash
+# Maintainer: Your Name <you@example.com>
+pkgname=parch-notes
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Minimal CLI note keeper for Parch"
+arch=('any')
+url="https://github.com/parchlinux/parch-notes"
+license=('MIT')
+depends=('bash')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/parchlinux/parch-notes/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('REPLACE_ME')
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    install -Dm755 parch-notes "${pkgdir}/usr/bin/parch-notes"
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+```
+
+Field by field:
+
+- `arch=('any')` because a bash script runs everywhere; compiled code uses
+  `('x86_64')`.
+- `source=` renames the download to a predictable name using the
+  `name::url` syntax.
+- `package()` installs into `$pkgdir`, which is the fake root of the
+  package. Everything the package needs must be copied there explicitly.
+
+## 3. Fill in real checksums
+
+```bash
+$ updpkgsums
+```
+
+This downloads the source and replaces `REPLACE_ME` with the real
+`sha256sums`. Checksums are how pacman proves the source is what the
+PKGBUILD claims; they are mandatory for submission.
+
+## 4. Build
+
+```bash
+$ makepkg -s
+```
+
+`-s` installs missing dependencies. On success you get:
+
+```text
+==> Finished making: parch-notes 0.1.0-1 (Sat 25 Oct 2026 10:00:00 PM +0330)
+```
+
+and the file `parch-notes-0.1.0-1-any.pkg.tar.zst` in the directory.
+
+## 5. Lint it
+
+```bash
+$ namcap PKGBUILD
+$ namcap parch-notes-0.1.0-1-any.pkg.tar.zst
+```
+
+Fix every warning before moving on. The most common first-timer warnings:
+missing license file, dependencies that are actually implicit, and files
+outside `/usr`.
+
+## 6. Install, test, remove
+
+```bash
+$ sudo pacman -U parch-notes-0.1.0-1-any.pkg.tar.zst
+$ parch-notes "first note"
+$ parch-notes
+$ pacman -Ql parch-notes
+$ sudo pacman -R parch-notes
+```
+
+The install-test-remove cycle is the core QA of packaging: do it after every
+change, not just once. For anything non-trivial, repeat it in a clean chroot
+(see [Building packages](/packaging/building-packages/)).
+
+## 7. What did pacman actually do?
+
+```bash
+$ pacman -Qi parch-notes        # metadata from the PKGBUILD
+$ tar -tf parch-notes-0.1.0-1-any.pkg.tar.zst | head
+```
+
+Every pacman package is a compressed archive with metadata (`.PKGINFO`,
+`.MTREE`) and files. Your `package()` function decided those files; pacman
+adds the metadata.
+
+## Where to next
+
+- [PKGBUILD reference](/packaging/pkgbuild-reference/) for every variable
+  and function.
+- [Example packages](/packaging/example-packages/) for desktop apps,
+  systemd services, and libraries.
+- [Submission](/packaging/submission/) when it is ready for others.

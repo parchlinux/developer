@@ -1,0 +1,18 @@
+# Parch Developer Portal
+#
+# Pulls the published GHCR image (built by .github/workflows/docker-publish.yml),
+# or builds locally when the image line is commented out and `build:` enabled.
+#
+#   docker compose up -d          # run from the published image
+#   docker compose up -d --build  # build locally instead
+#
+# The portal is then available at http://localhost:8080
+
+services:
+  portal:
+    image: ghcr.io/parchlinux/developer:latest
+    # build: .
+    container_name: parch-developer-portal
+    ports:
+      - "8080:80"
+    restart: unless-stopped

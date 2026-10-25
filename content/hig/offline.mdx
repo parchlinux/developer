@@ -1,0 +1,28 @@
+---
+title: "Offline & connectivity"
+description: "Network loss is a state, not an error."
+order: 23
+---
+
+# Offline & connectivity
+
+Parch users are frequently on metered or unstable connections. Applications
+assume connectivity can vanish and return at any moment.
+
+<Checklist>
+  - Distinguish needs-network features from local ones; local functionality
+    never degrades when offline.
+  - On network loss: show a persistent, dismissible banner, not a modal ,
+    and disable network-dependent actions, explaining why.
+  - Retry with backoff automatically for background work; make manual retry
+    one obvious button for user-initiated work.
+  - Cache aggressively: the Store shows installed packages offline; the
+    portal itself works fully offline once loaded.
+  - On reconnect, resume interrupted downloads from where they stopped
+    (resumable HTTP) rather than restarting.
+  - Metered-connection awareness: bulk downloads ask before starting when
+    the connection is metered.
+</Checklist>
+
+Reference: the [network mock](/mockups/network/) offline state and the
+[empty states demo](/design/feedback/).

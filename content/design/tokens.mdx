@@ -1,0 +1,105 @@
+---
+title: "Design tokens"
+description: "The shared vocabulary of color, type, spacing, radii, and motion used by every Parch surface."
+order: 1
+---
+
+
+# Design tokens
+
+Tokens are named design decisions. Components and mock apps consume tokens
+only, never raw hex values, so a theme change propagates everywhere at once.
+The portal's own stylesheet is the canonical token file; applications map these
+semantics onto their toolkit equivalent (GTK `@accent_color`, Qt palette roles).
+
+## Brand colors
+
+The Parch identity is a teal→blue gradient with a purple secondary accent,
+drawn from the [parchlinux.com](https://parchlinux.com) brand.
+
+<div className="grid gap-3 sm:grid-cols-3">
+  <Swatch name="Brand teal" cssVar="--color-brand-teal" fallback="oklch(0.7115 0.131 174.2)" />
+  <Swatch name="Brand blue" cssVar="--color-brand-blue" fallback="oklch(0.6325 0.1882 253.02)" />
+  <Swatch name="Brand purple" cssVar="--color-brand-purple" fallback="oklch(0.5548 0.2951 300.6688)" />
+</div>
+
+Brand colors are for identity moments: the logo, hero surfaces, active accents.
+They are **not** the default button color everywhere, semantic roles below
+keep interfaces calm.
+
+## Semantic colors
+
+Semantic tokens adapt to light and dark automatically. Never use a semantic
+token for the wrong role (for example, `--danger` is only for destructive
+actions and errors).
+
+<SpecTable
+  columns={["Token", "Light", "Dark", "Role"]}
+  rows={[
+    ["--background", "#fbfcfd", "#020917", "Page and window background"],
+    ["--surface", "#ffffff", "#0b1526", "Cards, dialogs, raised areas"],
+    ["--surface-2", "#f3f6f8", "#101d31", "Header bars, subtle fills"],
+    ["--surface-3", "#e9eef2", "#18273d", "Hover states, tracks"],
+    ["--border / --border-strong", "#e2e8ed / #c7d2da", "#1c2b40 / #2b3d55", "Hairlines and input borders"],
+    ["--text / --text-muted / --text-subtle", "Ink scale", "Light ink scale", "Primary, secondary, tertiary text"],
+    ["--accent", "Parch teal", "Brighter teal", "Primary actions, selection, focus"],
+    ["--link", "Brand blue", "Lighter blue", "Inline links"],
+    ["--info / --success / --warning / --danger", "Blue / green / amber / red", "Lighter variants", "Status and callouts"],
+  ]}
+/>
+
+## Typography
+
+Parch uses **Saira** for Latin UI text, **Estedad** for Persian (RTL) text,
+and **JetBrains Mono** for code and identifiers. All three are open fonts.
+
+<SpecTable
+  columns={["Style", "Size / weight", "Usage"]}
+  rows={[
+    ["Display", "36–40px, bold, -1.2% tracking", "Landing heroes only"],
+    ["Title 1", "34px, semibold", "Article page titles"],
+    ["Title 2", "24px, semibold", "Section headings"],
+    ["Title 3", "19px, semibold", "Subsections, card titles"],
+    ["Body", "16px, regular, 1.75 line-height", "Article text"],
+    ["Body small", "14px", "Descriptions, captions"],
+    ["Mono", "13.7px (0.855rem)", "Code, paths, package names"],
+  ]}
+/>
+
+Persian text uses Estedad at the same sizes with 1.05× line-height for the
+taller Arabic-script letterforms; see [RTL and Persian typography](/hig/rtl-and-persian/).
+
+## Spacing, radii, elevation
+
+Spacing follows a 4px base grid. Corner radii and elevation are intentionally
+limited to a small set:
+
+<SpecTable
+  columns={["Token", "Value", "Usage"]}
+  rows={[
+    ["--radius-sm", "6px", "Chips, small controls"],
+    ["--radius-md", "10px", "Cards, inputs, images"],
+    ["--radius-lg", "14px", "Dialogs, popovers"],
+    ["--radius-window", "16px", "Application windows"],
+    ["--shadow-card", "1px + 24px soft", "Resting cards"],
+    ["--shadow-raised", "2px + 40px soft", "Hovered cards, dialogs, toasts"],
+  ]}
+/>
+
+## Motion
+
+Motion is feedback, not decoration. Durations: 150ms for hovers and state
+changes, 250ms for enters/exits, both on the soft-out curve
+`cubic-bezier(0.2, 0.8, 0.2, 1)`. Everything respects
+`prefers-reduced-motion`.
+
+<Callout kind="tip" title="Indeterminate progress">
+  The one looping animation in the system is the indeterminate progress sweep ,
+  1.6s on the same soft-out curve.
+</Callout>
+
+## Focus and accessibility
+
+Focus is always visible: a 2px `--accent` ring with 2px offset. Contrast
+ratios for text and interactive states meet WCAG 2.1 AA in both themes.
+See [Accessibility](/hig/accessibility/) for the full rules.

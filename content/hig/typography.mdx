@@ -1,0 +1,59 @@
+---
+title: "Typography"
+description: "Saira for Latin, Estedad for Persian, JetBrains Mono for code, scale and rules."
+order: 3
+---
+
+
+# Typography
+
+## Typefaces
+
+| Usage | Typeface | Notes |
+|---|---|---|
+| UI & docs (Latin) | **Saira** | Parch's UI voice; variable weight 100–900 |
+| UI & docs (Persian) | **Estedad** | Covers Arabic script; Latin fallback present |
+| Code, paths, packages | **JetBrains Mono** | Same family as the handbook and terminal |
+
+All three are open fonts and ship with Parch tooling. Persian text falls back
+to Estedad automatically in mixed-direction strings because the font stack is
+ordered `Saira → Estedad → system`.
+
+## Scale
+
+<SpecTable
+  columns={["Style", "Size / weight", "Usage"]}
+  rows={[
+    ["Display", "36–40px · bold", "Landing heroes only"],
+    ["Title 1", "34px · semibold", "Page titles"],
+    ["Title 2", "24px · semibold", "Section headings"],
+    ["Title 3", "19px · semibold", "Subsections, card titles"],
+    ["Body", "16px · regular · 1.75", "Reading text"],
+    ["Body small", "14px", "Descriptions, captions"],
+    ["Label", "12–13px · medium", "Field labels, chips"],
+    ["Mono", "13.7px", "Code, commands, identifiers"],
+  ]}
+/>
+
+## Rules
+
+<Checklist>
+  - Line length: 60–80 characters for reading text, the portal's article
+    column is capped for this reason.
+  - Headings are sentence case in English and normal case in Persian; no
+    all-caps headings except small uppercase group labels (used sparingly).
+  - Weight carries hierarchy; size carries it further. Never use color alone
+    to distinguish headings from body.
+  - Numbers in data-dense UIs use tabular figures where the toolkit supports
+    them (`font-variant-numeric: tabular-nums`).
+</Checklist>
+
+## Persian typography
+
+- Use Estedad at the same nominal sizes with ~1.05× line-height; Arabic-script
+  letterforms are taller.
+- Persian numerals (۱۲۳) are preferred in Persian UI strings; keep Latin
+  numerals in code, versions, and package names.
+- Do not letter-space Persian text; it breaks letter joining.
+- Mixed-direction text (Persian + package names) uses Unicode bidi isolation
+  so package names stay LTR inside RTL sentences.

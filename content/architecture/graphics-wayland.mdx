@@ -1,0 +1,57 @@
+---
+title: "Graphics & display"
+description: "Wayland, X11 fallback, drivers, and the KDE Plasma desktop in Parch."
+order: 4
+source: "ch. 16, 18, 63"
+---
+
+# Graphics & display
+
+## Display protocol
+
+Wayland is the default session protocol on modern Parch editions; Plasma
+runs its Wayland session, GNOME runs GNOME Wayland. X11 remains available
+through XWayland for legacy applications, and X11 sessions are still
+installed on editions where a compositor or driver requires them.
+
+What developers must know:
+
+- **Test on Wayland.** Screen capture, global shortcuts, clipboard managers,
+  and tray applets behave differently. Use portals
+  (`xdg-desktop-portal`, plus the KDE/GNOME backend) instead of X11 APIs.
+- **App ids matter.** Wayland matches windows to applications by app id
+  (desktop-file name). Set `StartupWMClass` in your desktop entry correctly
+  or window rules and dock integration break.
+- **Fractional scaling is normal.** 125% and 150% scale factors are common
+  on laptops; test your app at both.
+
+## Graphics drivers
+
+The stack is the standard Arch set: Mesa for AMD/Intel, `linux-firmware`
+for GPU firmware, and vendor drivers where needed:
+
+| Hardware | Stack | Notes |
+|---|---|---|
+| AMD | Mesa (RadeonSI/RADV) | Works out of the box |
+| Intel | Mesa | Works out of the box |
+| NVIDIA | proprietary `nvidia`/`nvidia-open` or nouveau | The [Parch Driver Manager](https://github.com/parchlinux/Parch-Driver-Manager) detects and offers the right variant |
+| Broadcom Wi-Fi/GPU | `broadcom-wl-dkms` in ISO lists | DKMS modules must match the installed kernel |
+
+DKMS is the recurring integration risk: any out-of-tree module needs the
+matching kernel headers, and kernel upgrades rebuild it. ISO package lists
+pair kernels with their headers deliberately (see
+[packages.x86_64](/iso/packages-x86_64/)).
+
+## KDE Plasma
+
+Plasma is the flagship Parch desktop, themed with Parch components:
+`parch-sddm` for the login screen, Plasma color schemes, and the
+`plasma-setup` first-run tool. Edition-level differences and theming
+packages are covered in [Desktop profiles](/iso/desktop-profiles/).
+
+## Other desktops
+
+GNOME editions use `gnome-parch` for theming; XFCE, Hyprland, and
+experimental COSMIC editions carry their own configuration repos
+(`parch-hyprland`, `hyprland-dots`). The [component map](/architecture/component-map/)
+lists them all.

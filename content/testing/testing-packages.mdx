@@ -1,0 +1,71 @@
+---
+title: "Testing packages"
+description: "The package test plan: build, install, upgrade, remove, dependency validation."
+order: 2
+---
+
+# Testing packages
+
+This is the canonical package test plan. Copy it into your submission and
+tick the boxes; reviewers expect the evidence.
+
+## The plan
+
+```text
+[ ] Clean chroot build passes          pkgctl build
+[ ] namcap clean                       namcap PKGBUILD && namcap *.pkg.tar.zst
+[ ] check() runs and passes            makepkg -sc --check  (if tests exist)
+[ ] Install                            sudo pacman -U ./pkg-1.0-1-*.zst
+[ ] File list sane                     pacman -Ql pkg
+[ ] Feature smoke test                 run the program's primary flow
+[ ] Upgrade                            build 1.0-2, pacman -U over -1, .pacnew flow sane
+[ ] Remove                             sudo pacman -R pkg, no leftovers
+[ ] Dependencies minimal               ldd review (binaries), pacman -Qi
+[ ] Desktop entry valid                desktop-file-validate
+[ ] Persian locale                     LANG=fa_IR.UTF-8 runs, RTL sane
+```
+
+Each line's commands and interpretation are in
+[testing and validation](/packaging/testing-validation/).
+
+## Dependency validation
+
+The two failure classes reviewers see most:
+
+1. **Missing depends that your machine satisfied by luck.** The clean
+   chroot catches build-time ones; runtime ones need the `ldd` review for
+   binaries and a mental trace of `import`s for scripts. A Python app that
+   imports `requests` needs `python-requests` in `depends` even if every
+   tester has it installed.
+2. **Depends that nothing needs.** `bash`, `glibc`, and `systemd` are part
+   of every Arch base; listing them is noise unless you need a minimum
+   version.
+
+For split packages, install every sub-package and check they neither
+overlap nor leave shared files unpackaged.
+
+## Upgrade testing matters most
+
+Rolling distribution users upgrade; they rarely install fresh. Concretely:
+
+- If you renamed a file or moved config to `backup=`, test that the old
+  installed version upgrades to the new one without eating user edits.
+- If a package changes a service unit, test `systemctl` after upgrade
+  (daemon-reload happens via hooks; verify).
+- If a package is replaced by another (`replaces=`), test the transition on
+  a system with the old package installed.
+
+## Documenting evidence
+
+A submission (or update) with this block in the email/PR gets reviewed
+faster:
+
+```text
+Built in clean chroot (pkgctl build) on current world+extra.
+namcap: no warnings.
+Installed 0.2.0-1, ran notes --add/--list/--sync, output correct.
+Upgraded over 0.1.0-1: notes file preserved, .pacnew as expected.
+Removed: no files left in /usr/bin or /etc.
+ldd: all libs resolved, python-requests added to depends.
+fa_IR run: RTL layout correct.
+```

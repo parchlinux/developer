@@ -1,0 +1,219 @@
+---
+title: "Building packages"
+description: "The makepkg workflow: install the toolchain, fetch PKGBUILDs with pkgctl, corrected makepkg flags, clean chroot builds, GPG signing, and a local test repository."
+order: 2
+source: "ch. 33, 51"
+---
+
+# Building packages
+
+`makepkg` turns a PKGBUILD into an installable `.pkg.tar.zst`. This page walks through the full local workflow on an Arch-based host: toolchain setup, fetching PKGBUILDs, building, and testing the result. It assumes you already understand the PKGBUILD format from the [reference](/packaging/pkgbuild-reference/).
+
+## Prerequisites
+
+- An **Arch-based host** (Parch GNU/Linux or Arch Linux) with a current `pacman -Syu`.
+- An unprivileged build user; `makepkg` refuses to run as root.
+- The packages below (root required to install them).
+
+<CodeBlock title="Install the packaging toolchain (root required)">
+
+```bash
+# pacman -S --needed base-devel pkgctl namcap pacman-contrib
+```
+
+</CodeBlock>
+
+- `base-devel`: gcc, make, and the rest of the compiler stack.
+- `pkgctl`: devtools front end for cloning and chroot builds.
+- `namcap`: PKGBUILD and package linter.
+- `pacman-contrib`: provides `updpkgsums` and `pactree`.
+
+<Callout kind="important" title="asp is gone, pkgctl is the tool">
+  `asp` was removed from the Arch repositories. Fetch official PKGBUILDs with
+  `pkgctl repo clone`. Old chapters that say `asp export` are out of date.
+</Callout>
+
+## Step by step
+
+<Steps>
+  <Step title="Create a build directory">
+    Keep one directory per package, outside any repository checkout, so builds never interfere with your system files.
+
+    <CodeBlock title="Working layout">
+
+    ```bash
+    $ mkdir -p ~/builds/example-todo && cd ~/builds/example-todo
+    ```
+
+    </CodeBlock>
+  </Step>
+  <Step title="Get a PKGBUILD">
+    To study or rebuild an official package, clone its build recipe:
+
+    <CodeBlock title="Clone an official PKGBUILD with pkgctl">
+
+    ```bash
+    $ pkgctl repo clone linux-firmware
+    $ cd linux-firmware
+    ```
+
+    </CodeBlock>
+
+    For your own package, write the PKGBUILD in this directory instead. For software whose sources are covered in the [application development](/app-dev/) section, you can package the same tree you develop in.
+  </Step>
+  <Step title="Check syntax and generate checksums">
+    <CodeBlock title="Validate before building">
+
+    ```bash
+    $ bash -n PKGBUILD
+    $ namcap PKGBUILD
+    $ updpkgsums        # fills or rewrites the sha256sums array in place
+    ```
+
+    </CodeBlock>
+  </Step>
+  <Step title="Fetch sources only (optional)">
+    To download and extract the sources without compiling, useful for inspecting what you are about to build:
+
+    <CodeBlock title="Download and extract, no build">
+
+    ```bash
+    $ makepkg -o
+    $ ls src/
+    ```
+
+    </CodeBlock>
+
+    After editing files under `src/`, rebuild them with `makepkg -e`, which reuses the existing `src/` tree instead of re-extracting and would otherwise discard your edits.
+  </Step>
+  <Step title="Build the package">
+    <CodeBlock title="Full build with dependency installation">
+
+    ```bash
+    $ makepkg -s
+    ```
+
+    </CodeBlock>
+
+    On success the directory contains `example-todo-1.4.2-1-x86_64.pkg.tar.zst`. `-s` installs missing build dependencies via pacman; add `-c` to clean the work tree afterwards, or `-si` to also install the finished package immediately.
+  </Step>
+  <Step title="Inspect the result">
+    <CodeBlock title="List what the package contains">
+
+    ```bash
+    $ pacman -Qpl example-todo-1.4.2-1-x86_64.pkg.tar.zst
+    $ namcap example-todo-1.4.2-1-x86_64.pkg.tar.zst
+    ```
+
+    </CodeBlock>
+  </Step>
+</Steps>
+
+## makepkg flags that matter
+
+<Callout kind="warning" title="There is no -b build-only flag">
+  Some older Parch chapters list `makepkg -b` as "build only" and describe
+  `-o` and `-e` as if they were opposites. That is wrong. There is no `-b`
+  flag: `-o` downloads and extracts without building, `-e` skips extraction
+  and builds from an existing `src/` tree.
+</Callout>
+
+| Flag | Long form | Effect |
+| --- | --- | --- |
+| `-s` | `--syncdeps` | Install missing dependencies with pacman first. |
+| `-i` | `--install` | Install or upgrade the package after a successful build. |
+| `-c` | `--clean` | Remove leftover build files from the work tree. |
+| `-o` | `--nobuild` | Download and extract sources, then stop before `build()`. |
+| `-e` | `--noextract` | Do not extract sources, use what is already in `src/`. |
+| `-g` | `--geninteg` | Generate the integrity arrays and print them (prefer `updpkgsums`). |
+| `-r` | `--rmdeps` | Remove build dependencies after the build. |
+| `-f` | `--force` | Overwrite an existing package file of the same version. |
+| `-R` | `--repackage` | Re-run only `package()` on the previous build. |
+| `-L` | `--log` | Write the build output to a log file. |
+| `-d` | `--nodeps` | Skip dependency checks (escape hatch, use with care). |
+| `--check` | | Run the `check()` function. |
+| `--packagelist` | | Print the package file names this PKGBUILD would produce. |
+| `--printsrcinfo` | | Print `.SRCINFO` to stdout. |
+| `--skippgpcheck` | | Skip source PGP verification. Only for sources you already trust. |
+
+## Test in a clean chroot
+
+A host build succeeds with whatever happens to be installed on your machine. A clean chroot build proves the dependency lists are complete, which is exactly what reviewers and the build service will see. `pkgctl build` wraps devtools' `makechrootpkg` and manages the chroot for you:
+
+<CodeBlock title="Clean chroot build">
+
+```bash
+$ cd ~/builds/example-todo
+$ pkgctl build
+```
+
+</CodeBlock>
+
+It builds the package inside a minimal container with only the declared `depends`, `makedepends`, and `checkdepends` installed, then drops the finished package next to the PKGBUILD. If the build fails there but succeeds on the host, your dependency arrays are incomplete or your `build()` reads something from the host that it should not. Rebuild the chroot from scratch with `pkgctl build --clean` after toolchain updates.
+
+## Sign packages with GPG
+
+Signing lets others verify a package came from you:
+
+<CodeBlock title="Create a key and enable signing">
+
+```bash
+$ gpg --full-generate-key
+$ gpg --list-secret-keys --keyid-format=long
+```
+
+</CodeBlock>
+
+Copy the long key ID (40 hex characters) into `~/.makepkg.conf`:
+
+<CodeBlock title="~/.makepkg.conf">
+
+```text
+PACKAGER="Your Name <you@example.com>"
+GPGKEY="C4A91FF52A0B8E9A5C3D71F6B2E84D930FA7C612"
+```
+
+</CodeBlock>
+
+With `GPGKEY` set, `makepkg` signs every package it produces. To sign or re-sign an existing file, run `makepkg --sign`. A detached signature appears next to the package as a `.sig` file.
+
+## Local test repository
+
+For testing several packages together, index them into a local repository and point pacman at it:
+
+<CodeBlock title="Create a local repo and install from it">
+
+```bash
+$ mkdir -p ~/repo/x86_64
+$ cp example-todo-1.4.2-1-x86_64.pkg.tar.zst ~/repo/x86_64/
+$ repo-add ~/repo/x86_64/parch-local.db.tar.gz ~/repo/x86_64/*.pkg.tar.zst
+```
+
+</CodeBlock>
+
+Add the repository to `/etc/pacman.conf` (root required):
+
+<CodeBlock title="/etc/pacman.conf">
+
+```ini
+[parch-local]
+SigLevel = Optional TrustAll
+Server = file:///home/YOUR-USERNAME/repo/x86_64/
+```
+
+</CodeBlock>
+
+Then `# pacman -Syu example-todo` installs from your local repo exactly the way users will install from world.
+
+## Troubleshooting
+
+- **Checksum mismatch**: confirm the source change is legitimate upstream, then re-run `updpkgsums`. Never blind-patch a mismatch; investigate first.
+- **Builds on the host, fails in the chroot**: a missing `makedepends` entry or a hardcoded host path in `build()`.
+- **makepkg refuses to run as root**: run it as your normal user; pacman operations it triggers will ask for sudo.
+- **pacman cannot find the local package**: re-run `repo-add` after copying new package files, the database is not scanned automatically.
+
+## Related pages
+
+- [PKGBUILD reference](/packaging/pkgbuild-reference/): variables and functions.
+- [Testing and validation](/packaging/testing-validation/): the full pre-submission test plan.
+- [Command reference](/reference/): quick syntax for the tools used here.

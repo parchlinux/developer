@@ -1,0 +1,102 @@
+---
+title: "CI/CD"
+description: "GitHub Actions as Parch uses it: ISO builds per release and app CI patterns."
+order: 4
+source: "ch. 44, 45, 46, 48; real build.yaml"
+---
+
+# CI/CD
+
+Parch's continuous integration is GitHub Actions. The ISO build pipeline is
+real and release-triggered; application repos add linting and tests. This
+page documents both patterns.
+
+## The ISO pipeline (real)
+
+Each ISO profile repository carries `.github/workflows/build.yaml`:
+
+```yaml
+name: build parchiso per release
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-beta:
+    if: github.event.release.prerelease == true
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Packages via Pacman
+        run: pacman -Sy; pacman --noconfirm -S git archiso python
+             python-pygithub github-cli reflector p7zip openssh sshpass rsync wget
+      - name: Build image
+        run: mkarchiso -v iso/
+      # pre-release: publish to the test location
+      - run: mv "$(ls out/*.iso)" out/Parchlinux-test-latest.iso
+      - run: rsync out/*.iso root@mirror.parchlinux.com:/srv/http/test/
+
+  build:
+    if: github.event.release.prerelease == false
+    # stable: attach 7z multi-volume archive + md5sums to the release
+```
+
+Behavior to know:
+
+- **Trigger:** creating a GitHub release. Tag first, release second; a tag
+  without a release builds nothing.
+- **Runner:** the `archlinux:latest` container with `--privileged`
+  (mkarchiso needs loop devices and mounts).
+- **Pre-releases** upload `Parchlinux-test-latest.iso` to
+  `mirror.parchlinux.com:/srv/http/test/` (SSH via sshpass with a secret).
+- **Stable releases** attach 7z multi-volume archives (`7z -v500m`) plus
+  `md5sums.txt` to the release itself.
+
+## Application CI pattern
+
+App repos run lint + tests on push and PR:
+
+```yaml
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed base-devel python python-pytest
+      - name: Run tests
+        run: pytest -q
+```
+
+Rust repos use `rust:latest` containers and `cargo test --frozen`; Qt repos
+install `qt6-base extra-cmake-modules` and run CTest.
+
+## Debugging failed runs
+
+- Read the failing step's log first; ISO builds most often die on package
+  conflicts or disk space.
+- Download artifacts from the run page when a build succeeded but produced
+  something odd.
+- Timing out on package downloads usually means a mirror hiccup; re-run
+  once before investigating deeply.
+
+## What CI does not (yet) do
+
+<Callout kind="important" title="Honest scope">
+  CI builds ISOs and runs tests; it does not sign artifacts, does not build
+  the world repository, and does not run installer automation. Those are
+  documented as proposals in [release automation](/iso/release-automation/)
+  and [security](/security/).
+</Callout>

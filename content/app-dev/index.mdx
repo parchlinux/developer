@@ -1,0 +1,116 @@
+---
+title: "Application development"
+description: "Choosing a toolkit for Parch apps: GTK4/libadwaita, Qt6/KDE Frameworks, Rust, Python, or a plain CLI, with real Parch precedents for each."
+order: 0
+index: true
+source: "ch. 52-57"
+---
+
+# Application development
+
+Parch GNU/Linux ships two desktop faces: Plasma editions built on Qt6/KDE
+Frameworks, and GNOME/Hyprland/XFCE editions built on GTK. First-party apps
+already span both worlds and more, so this section starts from a simple
+question, which toolkit fits your app, and then walks each path end to end:
+code, desktop integration, localization, debugging, security, and packaging.
+
+## What Parch apps actually look like
+
+The toolchain mapping below comes from the real repositories, not from a
+style preference. Pick the row that matches your project and read the
+matching guide.
+
+| Real Parch app | Language | Toolkit | Lesson for your project |
+| --- | --- | --- | --- |
+| parch-welcome | Rust | gtk4-rs + libadwaita | First-run assistants, relm4-style structure |
+| PKM (parch-kernel-manager) | Python 3.9+ | GTK4 + libadwaita via PyGObject, VTE4 terminal, pkexec for privileged pacman | GUI plus privileged operations done safely |
+| pastor (Parch Store) | Rust | GTK | Store-scale apps, packaging via cargo |
+| gamehub, mirrorman, pordle | Rust | various | Small focused utilities in Rust |
+| parchdroid, Parch-Driver-Manager | Python | PyGObject | Python beyond the CLI |
+| plasma-setup | C++ | Qt6 + KF6 | Native Plasma configuration tools |
+| systuner | C | lightweight | Minimal-dependency system tools |
+
+The distribution also carries plain command-line tools (parch-update among
+them) that need no GUI toolkit at all.
+
+## Choosing a toolkit
+
+Use this table to narrow the choice in one look.
+
+| Your target | Language you want | Project size | Recommended path |
+| --- | --- | --- | --- |
+| GNOME, Hyprland, XFCE editions | Python | small to medium | GTK4 + libadwaita via PyGObject |
+| GNOME, Hyprland, XFCE editions | Rust | medium to large | gtk4-rs + libadwaita |
+| Plasma editions | C++ | medium to large | Qt6 + KDE Frameworks (KF6), CMake + ECM |
+| Plasma editions | Python | small to medium | PySide6 or PyQt6, KF6 where needed |
+| Any desktop | any | any | Follow the GTK or Qt path, then keep desktop-specific chrome minimal |
+| No GUI, scripting or system tool | Python or Rust | small | Plain CLI, see the Python and Rust pages |
+
+Three realities worth internalizing before you commit:
+
+1. **Match the desktop of your target edition.** A Plasma-native tool that
+   imitates libadwaita chrome (or the reverse) reads as foreign. The
+   [platform integration page](/hig/platform-integration/) maps the same HIG
+   intent onto both toolkits.
+2. **Language follows the precedent, not the reverse.** If you are
+   contributing to an existing Parch app, it is Python, Rust, C++, or C
+   already; keep it that way.
+3. **A CLI is a legitimate Parch app.** System tools with no window are
+   easier to package, easier to localize, and easier to secure.
+
+<Callout kind="note" title="About a unified Parch SDK">
+  A unified SDK wrapping environment detection and system helpers has been
+  proposed in the community. It remains a proposal, no such SDK ships today,
+  so build against the standard stacks documented here.
+</Callout>
+
+## In this section
+
+<CardGrid cols={3}>
+  <Card title="Choosing a toolkit" href="/app-dev/toolkit-guide/">
+    GTK4/libadwaita vs Qt6/KF6 vs TUI vs none: what each gives you natively.
+  </Card>
+  <Card title="GTK apps in Python" href="/app-dev/gtk-apps/">
+    A complete libadwaita app from empty directory to packaged, the PKM way.
+  </Card>
+  <Card title="Qt and KDE apps" href="/app-dev/qt-kde-apps/">
+    Qt6 + KF6 with CMake/ECM, KConfig, ki18n, and correct package names.
+  </Card>
+  <Card title="Rust apps" href="/app-dev/rust-apps/">
+    gtk4-rs + libadwaita, Cargo layout, and vendored PKGBUILD builds.
+  </Card>
+  <Card title="Python apps" href="/app-dev/python-apps/">
+    CLIs, desktop integration, and packaging rules for Python on Parch.
+  </Card>
+  <Card title="Desktop integration" href="/app-dev/desktop-integration/">
+    Desktop files, icons, portals, notifications, services, Wayland app ids.
+  </Card>
+  <Card title="Localization" href="/app-dev/localization/">
+    gettext workflow, Persian specifics, and the Persian-at-release rule.
+  </Card>
+  <Card title="Debugging and profiling" href="/app-dev/debugging-profiling/">
+    Wayland debugging, GTK inspector, coredumpctl, valgrind, perf.
+  </Card>
+  <Card title="Security practices" href="/app-dev/security-practices/">
+    polkit privilege separation, sandboxing, secrets, supply-chain hygiene.
+  </Card>
+</CardGrid>
+
+## Prerequisites for any path
+
+- A Parch or Arch-based system with the `base-devel` group installed:
+  `sudo pacman -S --needed base-devel git`
+- The toolkit packages listed at the top of each guide.
+- For packaging what you build: the
+  [PKGBUILD reference](/packaging/pkgbuild-reference/) and
+  [building packages](/packaging/building-packages/) pages.
+- For how the result should look and behave: the [Parch HIG](/hig/) and the
+  [design tokens](/design/tokens/).
+
+## Related sections
+
+- [HIG](/hig/): window, layout, RTL, and desktop-file rules every app follows.
+- [Packaging](/packaging/): getting your app into world and Void.
+- [Localization](/localization/): the distribution-level translation story.
+- [Security](/security/): the threat model your app is part of.
+- [Reference](/reference/): quick lookups while you code.

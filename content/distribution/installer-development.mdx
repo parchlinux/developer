@@ -1,0 +1,73 @@
+---
+title: "Installer development"
+description: "Working on the Parch Calamares flavor and the Rust installer generation."
+order: 2
+source: "ch. 49, 61; calamares-parch repo"
+---
+
+# Installer development
+
+Parch ships two installer tracks: the **Calamares flavor** used by current
+editions, and **archinstall-rs**, a Rust TUI installer under development.
+This page covers how both are built and tested.
+
+## Calamares: how the pieces fit
+
+Calamares itself is upstream (packaged in world with Parch patches). The
+Parch-specific parts live in the
+[calamares-parch](https://github.com/parchlinux/calamares-parch)
+repository: branding, module configuration, and presets, installed into the
+live environment where Calamares reads `/etc/calamares/`.
+
+```text
+/etc/calamares/
+├── settings.conf              module sequence (YAML)
+├── branding/parch/            branding.desc + slideshow QML + images
+└── modules/                   per-module *.conf (welcome, locale, keyboard,
+                               partition, users, summary, finished)
+```
+
+Calamares configuration is **YAML**. Module names and keys are defined by
+upstream Calamares; when adding configuration, check the module's
+documentation in the upstream Calamares repo rather than guessing key names.
+The Parch defaults of record: fa_IR locale with Asia/Tehran timezone
+offered, `parch` hostname default, users added to
+`users, wheel, storage, audio, video, network`, EFI partition of 512 MiB,
+and a btrfs preset enabling zstd compression.
+
+## Making a configuration change
+
+1. Clone `calamares-parch` and locate the module config.
+2. Validate YAML syntax (`python -c "import yaml,sys; yaml.safe_load(open('modules/users.conf'))"`).
+3. Test in a live VM: build an ISO of your edition with your modified
+   package ([build guide](/iso/build-first-iso/)), boot, and run the
+   installer to completion.
+4. Inspect results: the installed system's fstab, users, locale, and
+   bootloader all reflect your change.
+
+## Debugging a failing installer
+
+```bash
+$ sudo calamares -d          # debug mode, verbose logging
+$ cat /var/log/calamares/calamares.log
+```
+
+Common failure sources: a module config key that upstream does not
+recognize, a missing package in the live environment, partitioning edge
+cases on unusual disk layouts, and unmountable target filesystems. The log
+names the module and step; fix configuration or package list accordingly.
+
+## archinstall-rs
+
+[archinstall-rs](https://github.com/parchlinux/archinstall-rs) is a Rust TUI
+installer with partitioning and optional LUKS support. It aims to give
+minimal and net-editions a lighter path than Calamares. Contributions need
+Rust proficiency and careful partitioning tests (it manipulates disks); see
+the repository's issues for the current roadmap.
+
+## What never ships from here
+
+Installer changes are the highest-risk category in the distribution: a
+module error can corrupt user disks. Configuration PRs require a full VM
+install test (documented in the PR), and disk-touching code requires a
+second maintainer review.

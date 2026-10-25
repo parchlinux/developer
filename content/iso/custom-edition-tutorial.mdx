@@ -1,0 +1,209 @@
+---
+title: "Custom edition tutorial"
+description: "Complete worked example: fork parch-iso-template, rename the ISO, curate the package list, add an airootfs customization, build, and test, without touching production repos."
+order: 12
+source: "ch. 11, 15, 60; parch-iso-template repository"
+---
+
+# Custom edition tutorial
+
+This page builds a complete, personal Parch edition from `parch-iso-template`, forked, renamed, repackaged, customized, built, and boot-tested, entirely inside your own GitHub account. Nothing here touches the production `parchlinux/*` repositories.
+
+Our example edition is a small "toolbox" image: the CLI template base plus a few rescue tools and a custom welcome script. The same steps produce any edition, desktop included.
+
+## Prerequisites
+
+- The build host from [Build your first ISO](/iso/build-first-iso/) (Arch-based, 30 GB disk, 4+ GB RAM, QEMU installed).
+- A GitHub account and `git` configured with SSH keys.
+- About 30 minutes for the first build, plus iteration time afterwards.
+
+## Step-by-step
+
+<Steps>
+  <Step title="Fork parch-iso-template">
+    Open [github.com/parchlinux/parch-iso-template](https://github.com/parchlinux/parch-iso-template) and fork it to your account, then clone your fork:
+
+    <CodeBlock title="Clone your fork">
+
+    ```bash
+    $ git clone git@github.com:YOURNAME/parch-iso-template.git parch-iso-toolbox
+    $ cd parch-iso-toolbox
+    ```
+
+    </CodeBlock>
+
+    <Callout kind="tip" title="Publishing later">
+      If you want your edition to become a community project, the Parch community organization (`parchlinuxb` on GitHub) is where community spins are hosted per the handbook, but develop in your own fork first and keep `parch-iso-template` untouched as your upstream.
+    </Callout>
+  </Step>
+  <Step title="Rename the ISO">
+    Edit `iso/profiledef.sh` and change the identity block:
+
+    <CodeBlock title="iso/profiledef.sh, identity changes">
+
+    ```bash
+    iso_name="ParchToolbox"
+    iso_label="PARCHTOOLBOX_$(date +%Y%m)"
+    iso_publisher="Your Name <https://github.com/YOURNAME/parch-iso-toolbox>"
+    iso_application="Parch GNU/Linux Toolbox Live/Rescue CD"
+    ```
+
+    </CodeBlock>
+
+    Leave `install_dir`, `buildmodes`, `bootmodes`, and the squashfs options alone, they are correct for every edition. Keep `iso_label` under 32 characters.
+  </Step>
+  <Step title="Curate the package list">
+    Open `iso/packages.x86_64`. Start from what the template ships (base system, kernel, firmware, network, sudo, editors) and add your edition's purpose. For the toolbox:
+
+    <CodeBlock title="Additions to iso/packages.x86_64">
+
+    ```text
+    # --- Toolbox additions ---
+    # Disk rescue
+    testdisk
+    ddrescue
+    smartmontools
+    # Filesystem tools
+    btrfs-progs
+    dosfstools
+    # Network diagnosis
+    mtr
+    tcpdump
+    ```
+
+    </CodeBlock>
+
+    Validate each name before building, `pacman -Si testdisk` on your host, and keep the list comment-organized (see [Package lists](/iso/packages-x86_64/) for the pitfalls: conflicts, firehose groups, per-kernel modules).
+  </Step>
+  <Step title="Add an airootfs customization">
+    Give the edition a custom live behavior: a `/etc/motd` rewrite and a helper script.
+
+    <CodeBlock title="iso/airootfs/etc/motd, your edition's greeting">
+
+    ```text
+    Parch Toolbox Edition, live environment
+
+    Rescue tools: testdisk, ddrescue, smartmontools
+    Network tools: mtr, tcpdump
+
+    Start here: run `toolbox-help`
+    Install Parch: run the Installation_guide
+    ```
+
+    </CodeBlock>
+
+    <CodeBlock title="iso/airootfs/usr/local/bin/toolbox-help">
+
+    ```bash
+    #!/usr/bin/env bash
+    cat <<'EOF'
+    Parch Toolbox quick reference
+    -----------------------------
+    testdisk           recover lost partitions
+    ddrescue           clone failing disks safely
+    smartctl -a /dev/sdX  disk health
+    mtr 1.1.1.1        network path diagnosis
+    EOF
+    ```
+
+    </CodeBlock>
+
+    The script **must** be registered in `profiledef.sh`'s `file_permissions` or it will land non-executable:
+
+    ```bash
+    ["/usr/local/bin/toolbox-help"]="0:0:755"
+    ```
+
+    This is the single most-forgotten step in profile customization, see [airootfs customization](/iso/airootfs-customization/).
+  </Step>
+  <Step title="Commit and build">
+    Commit your changes (so iterations are diffable), then build as root:
+
+    <CodeBlock title="Build the edition">
+
+    ```bash
+    $ git add -A && git commit -m "Parch Toolbox edition: packages, motd, toolbox-help"
+    $ sudo ./build.sh
+    ```
+
+    </CodeBlock>
+
+    First build downloads the base package set; later builds are fast. On success:
+
+    ```text
+    out/
+    ├── ParchToolbox-x86_64.iso
+    ├── ParchToolbox-x86_64.iso.7z.001
+    └── md5sums.txt
+    ```
+
+    The template `build.sh` produces the release-style 7z volumes and checksums automatically.
+  </Step>
+  <Step title="Boot-test the edition">
+    Run both firmwares in QEMU before anything else:
+
+    <CodeBlock title="BIOS and UEFI boot tests">
+
+    ```bash
+    $ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 -cdrom out/*.iso -boot d
+    $ qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
+        -bios /usr/share/edk2/x64/OVMF_CODE.4M.fd -cdrom out/*.iso -boot d
+    ```
+
+    </CodeBlock>
+
+    Then, inside the live session, verify the edition actually is yours:
+
+    <Checklist>
+      <p>The Syslinux/systemd-boot menus show the Parch entries; the ISO filename is `ParchToolbox-x86_64.iso`.</p>
+      <p>`cat /etc/motd` prints your toolbox greeting.</p>
+      <p>`toolbox-help` runs without `permission denied` (the file_permissions entry worked).</p>
+      <p>`pacman -Q testdisk ddrescue smartmontools` lists the added tools at their versions.</p>
+      <p>Networking, `choose-mirror`, and `Installation_guide` still work, the template base is intact.</p>
+    </Checklist>
+  </Step>
+  <Step title="Run an installer test">
+    Attach a scratch disk and do one full Calamares erase-disk install, then reboot without the medium, per the checklist in [Testing an ISO](/iso/testing-iso/). Your `/etc/motd` and `/usr/local/bin/toolbox-help` should appear in the installed system too, airootfs customizations ride along through `unpackfs`.
+  </Step>
+  <Step title="Iterate and keep your fork in sync">
+    Each change is: edit files, commit, rebuild, boot-test. To keep up with the upstream template:
+
+    <CodeBlock title="Sync with upstream template">
+
+    ```bash
+    $ git remote add upstream https://github.com/parchlinux/parch-iso-template.git
+    $ git fetch upstream
+    $ git merge upstream/main        # resolve conflicts, rebuild, retest
+    ```
+
+    </CodeBlock>
+  </Step>
+</Steps>
+
+## Where to take it next
+
+- **Add a desktop**, swap the package set and display manager; the checklist in [Desktop profiles](/iso/desktop-profiles/) enumerates every touchpoint (SDDM/GDM/LightDM, skel defaults, theme packages like `parch-sddm` and `parch-grub-theme`).
+- **Tune the boot experience**, add boot entries or change splash in `syslinux/`, `grub/`, and `efiboot/` ([Bootloader configuration](/iso/bootloader-config/)).
+- **Enable services in the live env**, symlink units under `airootfs/etc/systemd/system/` ([airootfs customization](/iso/airootfs-customization/)).
+- **Automate your builds**, copy the CI pattern from the production editions: a release-triggered `build.yaml` builds the same artifact set as your local `build.sh` ([Release automation](/iso/release-automation/)).
+
+## Expected results
+
+- `out/ParchToolbox-x86_64.iso` boots on both firmwares with your branding, packages, and scripts.
+- A full install produces a system carrying your edition's customizations.
+- Your fork's git history shows one clean commit per iteration, so problems bisect quickly.
+
+## Troubleshooting
+
+- **Build fails with `target not found`**, a package name from step 3 does not resolve; check `pacman -Si`. If it exists only in `world`, confirm `iso/pacman.conf` still lists `[world]` before `[core]`/`[extra]`.
+- **`toolbox-help: permission denied` in the live session**, the `file_permissions` entry is missing or misspelled (path must match exactly, including the leading slash). Fix and rebuild; nothing else clears the stale mode.
+- **Boot fails after changing `iso_label`**, rebuild fully; the bootloaders substitute `%ARCHISO_LABEL%` at build time. A stale `work/` can mask this: remove it and rebuild.
+- **Your motd/script changes do not appear**, the file is at the wrong path under `airootfs/` (it must mirror the absolute path, minus the `airootfs` prefix), or you are looking at an older ISO in `out/`.
+- **Merge from upstream conflicts in `profiledef.sh`**, keep upstream's structural keys (`bootmodes`, `airootfs_image_tool_options`, `file_permissions` entries for shared scripts) and re-apply your identity block and your own `file_permissions` entries.
+
+## Related pages
+
+- [Build your first ISO](/iso/build-first-iso/), the baseline this tutorial extends.
+- [Profile structure](/iso/profile-structure/), the files you just edited, in full.
+- [Desktop profiles](/iso/desktop-profiles/), turning this CLI edition into a desktop one.
+- [Testing an ISO](/iso/testing-iso/), the complete test plan beyond the quick checks above.

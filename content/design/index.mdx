@@ -1,0 +1,67 @@
+---
+title: "Design System"
+description: "Interactive, documented UI components, the reference implementation of the Parch Human Interface Guidelines."
+index: true
+order: 0
+---
+
+
+# Design System
+
+The Parch design system is the working implementation of the [Parch Human
+Interface Guidelines](/hig/). Every component on these pages is live: rendered
+with the same tokens, styles, and behavior that first-party Parch applications
+are specified to use. If the HIG and this system disagree, this system wins.
+
+<CardGrid>
+  <Card title="Design tokens" href="/design/tokens/">
+    Colors, typography, spacing, radii, elevation, and motion, the shared
+    vocabulary every component is built from.
+  </Card>
+  <Card title="Buttons & chips" href="/design/buttons/">
+    Variants, sizes, states, loading, and destructive confirmation.
+  </Card>
+  <Card title="Text fields" href="/design/fields/">
+    Labels, descriptions, validation, and search fields.
+  </Card>
+  <Card title="Selection controls" href="/design/selection-controls/">
+    Checkboxes, radio groups, switches, and dropdown selection.
+  </Card>
+  <Card title="Navigation" href="/design/navigation/">
+    Tabs, segmented navigation, and sidebar navigation patterns.
+  </Card>
+  <Card title="Dialogs & toasts" href="/design/dialogs/">
+    Confirmation windows, destructive flows, and transient notifications.
+  </Card>
+  <Card title="Feedback" href="/design/feedback/">
+    Progress, loading, empty states, and error messages.
+  </Card>
+  <Card title="App shell" href="/design/app-shell/">
+    Window frames, header bars, settings rows, and lists, the skeleton of a
+    Parch desktop application.
+  </Card>
+</CardGrid>
+
+## How demos work
+
+Every demo stage can be re-themed in place using the <strong>Site / Light /
+Dark</strong> switch in its header, components must be correct in both themes,
+so we make that easy to check while reading.
+
+<Demo label="Theme switch">
+  <DemoStage name="button-variants" />
+</Demo>
+
+## Principles
+
+<Checklist>
+  - **One token source.** Components never hardcode colors or sizes; they read
+    semantic tokens (`--accent`, `--surface-2`, …) that adapt to light and dark.
+  - **Respect the toolkit.** The design system defines Parch's shared language;
+    GTK/libadwaita and Qt apps keep their toolkit's native patterns and map
+    these intents onto them (see [Platform integration](/hig/platform-integration/)).
+  - **Keyboard complete.** Every interactive component is reachable and
+    operable by keyboard, with visible focus.
+  - **RTL aware.** Layouts mirror in right-to-left locales; see
+    [Localization & Accessibility](/localization/).
+</Checklist>

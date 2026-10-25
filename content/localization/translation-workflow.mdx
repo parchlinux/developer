@@ -1,0 +1,80 @@
+---
+title: "Translation workflow"
+description: "Gettext end to end: extraction, catalogs, plural rules, and tooling."
+order: 1
+source: "ch. 57"
+---
+
+# Translation workflow
+
+Parch uses gettext, the same system GTK, KDE (through ki18n), and most of
+the free-software world uses. One `.po` file per language per translation
+domain (usually the app name).
+
+## The moving parts
+
+```text
+po/
+├── parch-welcome.pot      template: extracted strings, no translations
+└── fa.po                  the Persian catalog
+```
+
+## Extracting strings
+
+For C/GLib-style gettext (`_()` macro or `gettext()` calls):
+
+```bash
+$ xgettext --from-code=UTF-8 -o po/parch-welcome.pot \
+    --package-name="Parch Welcome" src/*.rs src/**/*.rs
+```
+
+For PyGObject apps using Python's `gettext` module:
+
+```bash
+$ python3 -m tools/extract.py   # or xgettext with -L Python
+```
+
+For Qt apps, use the ki18n toolchain instead: `.ts` files with
+`lupdate`/`lrelease` (the concepts below still apply).
+
+## Translating and compiling
+
+```bash
+$ msgmerge --update po/fa.po po/parch-welcome.pot
+$ # edit po/fa.po (Poedit is the friendly tool)
+$ msgfmt -o po/fa.gmo po/fa.po
+```
+
+Install compiled catalogs to
+`/usr/share/locale/fa/LC_MESSAGES/<domain>.mo` from the PKGBUILD.
+
+## The rules that prevent broken translations
+
+<Checklist>
+  - **No string concatenation.** "Welcome to " + name breaks in Persian
+    word order. Use format strings: `_("Welcome to %s").printf(name)` or
+    full-sentence catalogs.
+  - **Plurals through gettext plural rules.** `ngettext("%d update",
+    "%d updates", n)`. Persian has one plural form for most nouns; English
+    has two; only the catalog knows.
+  - **Contexts for ambiguous words.** `pgettext("verb", "Open")` vs
+    `pgettext("adjective", "Open")`: translators see the context comment.
+  - **Comments for translators.** `// TRANSLATORS: keep the package name
+    untranslated` becomes a `#. ` comment in the .pot.
+  - **Never hardcode fonts or direction** in code; the locale decides (see
+    [Persian & RTL specifics](/localization/persian-rtl/)).
+</Checklist>
+
+## Desktop entries and GSettings
+
+Desktop files translate through `[fa]` keys (see
+[desktop files](/hig/desktop-files/)), not gettext. GSettings schemas
+translate their summaries/descriptions through gettext with the schema id
+as domain.
+
+## Where translations live
+
+First-party app repositories keep `po/` in the app repo; translators
+contribute through PRs or through the community channels announced in the
+[forum](https://forum.parchlinux.com). The wiki and this portal translate
+separately from app strings.

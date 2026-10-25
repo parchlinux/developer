@@ -1,0 +1,35 @@
+---
+title: "Light & dark themes"
+description: "How applications follow the system theme and when to override it."
+order: 8
+---
+
+# Light & dark themes
+
+Parch ships light and dark themes based on the same token set. The system
+theme is the single source of truth for applications.
+
+## Rules
+
+<Checklist>
+  - **Follow the system by default.** Read the desktop's color-scheme
+    preference; never ship a theme picker that fights the system setting.
+  - Both themes come from the same semantic tokens, if you wrote a hex
+    value, you wrote a bug.
+  - Offer an in-app override only for long-focus surfaces (video players,
+    terminals) and remember it per-app.
+  - Test both themes on every screen; the design-system demos include a
+    per-demo theme switch to make this routine.
+  - Images and diagrams need dark variants or a translucent backing surface.
+</Checklist>
+
+## How the system decides
+
+| Environment | Preference source |
+|---|---|
+| KDE Plasma | Colors & Themes → dark/light style (`kdeglobals` ColorScheme) |
+| GNOME | Appearance → Style (`org.gnome.desktop.interface color-scheme`) |
+| Terminal/web | `NO_COLOR` respected where applicable; portal: manual toggle |
+
+Applications should never scrape theme files directly; go through the
+toolkit's theme API so user overrides and third-party themes keep working.

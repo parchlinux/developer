@@ -1,0 +1,60 @@
+---
+title: "Navigation"
+description: "Tabs, segmented navigation, and sidebar navigation inside applications."
+order: 5
+---
+
+
+# Navigation
+
+## Tabs
+
+Tabs switch between peer views at the same level. They never nest inside
+dialogs, and tab labels never change while visible.
+
+<Demo>
+  <DemoStage name="app-tabs" />
+</Demo>
+
+## Sidebar navigation
+
+Applications with more than ~5 destinations use a sidebar (the Parch Store,
+Settings, and the portal itself all do):
+
+- Sections are icon + label; the active destination is marked with the accent
+  color and a bolder weight.
+- The sidebar scrolls independently of content.
+- On narrow widths it collapses into a drawer, the same tree, same order.
+
+## Choosing a pattern
+
+<SpecTable
+  columns={["Pattern", "Use when"]}
+  rows={[
+    ["Tabs", "2–5 peer views, flat hierarchy"],
+    ["Sidebar", "Many destinations, or two-level hierarchy"],
+    ["Breadcrumbs", "Deep, page-like hierarchies (documentation, file managers)"],
+    ["Back button", "Linear flows (wizards, installers)"],
+  ]}
+/>
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex gap-1 border-b border-border">
+        <span className="-mb-px border-b-2 border-accent px-3.5 py-2 text-[0.85rem] font-medium text-text">Explore</span>
+        <span className="px-3.5 py-2 text-[0.85rem] text-text-muted">Installed</span>
+      </div>
+    ),
+    caption: "Active tab marked with the accent underline.",
+  }}
+  dont={{
+    children: (
+      <div className="flex gap-1 border-b border-border">
+        <span className="-mb-px border-b-2 border-accent bg-accent-soft px-3.5 py-2 text-[0.85rem] font-medium text-accent">Explore</span>
+        <span className="px-3.5 py-2 text-[0.85rem] text-text-muted">Installed</span>
+      </div>
+    ),
+    caption: "Stacking a filled pill on the underline overloads the accent.",
+  }}
+/>

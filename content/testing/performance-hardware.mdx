@@ -1,0 +1,68 @@
+---
+title: "Performance & hardware"
+description: "Boot time, resource budgets, and real-hardware compatibility passes."
+order: 5
+source: "ch. 63, 65"
+---
+
+# Performance & hardware
+
+## Boot time
+
+Boot time is a user-visible metric worth tracking per release:
+
+```bash
+$ systemd-analyze              # total + kernel/firmware split
+$ systemd-analyze blame        # slowest units
+$ systemd-analyze critical-chain
+```
+
+Budgets for desktop editions: firmware+kernel under 5s on current hardware,
+userspace under 15s to a login screen. The live ISO boots slower (USB I/O
+dominates); compare live boots on the same USB stick across releases, not
+against installed systems.
+
+The usual offenders in profiles: unnecessary enabled services in airootfs,
+Plymouth on slow disks, and initramfs images built without compression
+tuning. Squashfs options (`-comp xz -b 1M`) trade size for decompression
+time; they are tuned in `profiledef.sh`.
+
+## Resource budgets
+
+Applications and the live session share a floor: the Parch desktop targets
+4 GB RAM on installed systems. Practical rules:
+
+- A first-party app idles under ~150 MB RSS.
+- The live session idles under ~1.5 GB with the desktop loaded.
+- Anything heavier must justify itself in design review (a store caching
+  package metadata is fine; a resident indexer is not).
+
+```bash
+$ systemd-cgtop              # who is using what, per service
+$ ps -eo rss,comm --sort=-rss | head
+```
+
+## Hardware compatibility
+
+VMs hide real-world quirks. Before each stable release, one hardware pass
+covers:
+
+```text
+[ ] One Intel laptop with iGPU
+[ ] One AMD desktop with dGPU (or APU)
+[ ] One NVIDIA machine (proprietary driver path via Driver Manager)
+[ ] Wi-Fi (both a common Intel card and a Broadcom card if available)
+[ ] Bluetooth audio pairing
+[ ] Suspend and resume
+[ ] Function keys: brightness, volume, keyboard backlight
+```
+
+DKMS modules (broadcom-wl, nvidia) are the classic hardware-only failure:
+they rebuild against the kernel at install time. Test them after a kernel
+upgrade too, not just on first install.
+
+## Filing hardware issues
+
+Attach `parchprobe` output (the hardware probe tool) plus `journalctl -b`
+to hardware bug reports; it captures the PCI/USB inventory and kernel state
+maintainers need. Reports without logs get slower answers.

@@ -1,0 +1,38 @@
+---
+title: "Dialogs & sheets"
+description: "Modal decisions, alerts, and confirmation flow rules."
+order: 13
+---
+
+# Dialogs & sheets
+
+Dialogs interrupt for a decision. Everything else belongs in the page.
+
+## Types
+
+- **Action dialog**, requests a choice before proceeding (remove package,
+  pick mirror). Contains a title, consequence statement, and 2–3 actions.
+- **Alert**, reports a blocking problem. One acknowledging action.
+- **Form dialog**, short input flows (rename, new profile). Fields + confirm.
+- **Sheet/side panel**, non-modal detail beside content; used instead of
+  dialogs when the user needs the underlying context visible.
+
+## Rules
+
+<Checklist>
+  - State the consequence before the action, concretely (“…and its 3
+    dependencies”, not “…and related components”).
+  - At most three actions; the confirming action carries the intent's styling
+    (destructive stays destructive **inside** the dialog only).
+  - Cancel is always present in destructive and form dialogs.
+  - <kbd>Esc</kbd> cancels; <kbd>Enter</kbd> activates the default action
+    (never a destructive one).
+  - Dialogs trap focus while open and return it to the trigger on close.
+</Checklist>
+
+<Callout kind="tip" title="Count your dialogs">
+  If an app shows more than one dialog per completed task, the flow is
+  usually mis-structured, move decisions into the page or a side panel.
+</Callout>
+
+Interactive examples: [Dialogs in the design system](/design/dialogs/).

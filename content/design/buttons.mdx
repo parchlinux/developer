@@ -1,0 +1,70 @@
+---
+title: "Buttons & chips"
+description: "Variants, sizes, states, and when to use the destructive button."
+order: 2
+---
+
+
+# Buttons & chips
+
+Buttons trigger actions. Chips classify and filter, they are not buttons.
+
+## Variants
+
+<SpecTable
+  columns={["Variant", "Intent"]}
+  rows={[
+    ["accent", "The single primary action of a view (Install, Save, Continue)"],
+    ["default", "Standard actions, the workhorse"],
+    ["flat", "Low-emphasis actions in toolbars and dense UI"],
+    ["destructive", "Irreversible or removal actions, always paired with confirmation"],
+    ["link", "Inline text actions"],
+  ]}
+/>
+
+<Demo>
+  <DemoStage name="button-variants" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - Exactly **one** accent button per view.
+  - Destructive buttons are only destructive on confirmation, the confirming
+    dialog repeats the destructive styling (see [Dialogs](/design/dialogs/)).
+  - Loading replaces the label with an ongoing action; the button disables
+    itself to prevent double submits.
+  - Minimum hit target: 32px height (small) with ≥ 8px spacing; 36px for
+    primary flows.
+</Checklist>
+
+<DoDont
+  do_={{
+    children: (
+      <div className="flex gap-2">
+        <button className="h-9 rounded-lg bg-accent px-3.5 text-[0.875rem] font-medium text-white">Install</button>
+        <button className="h-9 rounded-lg border border-border-strong bg-surface px-3.5 text-[0.875rem] text-text">Details</button>
+      </div>
+    ),
+    caption: "One accent action, supported by a neutral one.",
+  }}
+  dont={{
+    children: (
+      <div className="flex gap-2">
+        <button className="h-9 rounded-lg bg-accent px-3.5 text-[0.875rem] font-medium text-white">Install</button>
+        <button className="h-9 rounded-lg bg-accent px-3.5 text-[0.875rem] font-medium text-white">Update</button>
+        <button className="h-9 rounded-lg bg-accent px-3.5 text-[0.875rem] font-medium text-white">Remove</button>
+      </div>
+    ),
+    caption: "Three competing accent buttons, nothing reads as primary.",
+  }}
+/>
+
+## Chips
+
+Chips are compact status and category labels. They never look like buttons and
+are never the only place a critical state is communicated.
+
+<Demo>
+  <DemoStage name="chips" />
+</Demo>

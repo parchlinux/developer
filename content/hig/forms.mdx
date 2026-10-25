@@ -1,0 +1,38 @@
+---
+title: "Forms & settings pages"
+description: "Input layout, validation timing, and the settings-row pattern."
+order: 14
+---
+
+# Forms & settings pages
+
+## Forms
+
+<Checklist>
+  - Labels sit above fields, always visible; placeholders show format
+    examples, never carry instructions.
+  - Help text goes below the field in `--text-muted`; it is replaced by the
+    validation message on error.
+  - Validate on blur or submit; never mid-keystroke.
+  - One primary submit button, placed at the end of the flow; destructive
+    alternatives live elsewhere.
+  - Long forms group into titled sections; nothing essential hides behind a
+    collapsed group.
+</Checklist>
+
+## Settings pages
+
+Settings use the row pattern: leading icon (optional), label + description,
+trailing control, grouped under an uppercase group title.
+
+<Checklist>
+  - Rows describe effect, not mechanism (“Check for updates automatically”,
+    not “Run pacman -Syu via timer”).
+  - A switch means the effect applies immediately; if a Save step is needed,
+    it's a checkbox.
+  - Every setting has a visible effect, no dead toggles.
+  - Searchable settings pages expose row titles to search.
+</Checklist>
+
+Live demo: [App shell → Settings rows](/design/app-shell/) and the
+[Settings mock](/mockups/settings/).

@@ -1,0 +1,94 @@
+---
+title: "Set up your workstation"
+description: "Install Parch or Arch, add the world repository, and install the build toolchain."
+order: 2
+source: "ch. 12, 13, 52"
+---
+
+# Set up your workstation
+
+## Prerequisites
+
+- An x86_64 machine (or VM) with at least 30 GB free disk space and 8 GB RAM
+  for comfortable ISO builds (4 GB works for packaging).
+- Parch GNU/Linux or Arch Linux installed. For Parch, download an edition
+  from [parchlinux.com](https://parchlinux.com) and install with Calamares.
+  For Arch, follow the [official installation guide](https://wiki.archlinux.org/title/Installation_guide).
+- A standard user account with sudo/wheel access.
+
+## Update fully first
+
+All commands in this portal assume a fully updated system. A partial upgrade
+breaks builds in confusing ways.
+
+```bash
+$ sudo pacman -Syu
+```
+
+## Add the world repository
+
+The [world](https://github.com/parchlinux/world) repository carries
+Parch-built packages. On an installed Parch system it is already configured;
+on plain Arch, add it to `/etc/pacman.conf` **above** the Arch repos:
+
+```ini
+[world]
+SigLevel = Never
+Server = https://github.com/parchlinux/world/raw/refs/heads/main/x86_64/
+```
+
+```bash
+$ sudo pacman -Syu
+```
+
+<Callout kind="warning" title="About SigLevel = Never">
+  Packages in world are not GPG-signed today. That is the current state of
+  the infrastructure, documented honestly; treat it as a known gap, not a
+  recommendation. See [Security](/security/) for the direction.
+</Callout>
+
+To follow testing packages as well, enable the
+[Void](https://github.com/parchlinux/Void) repository the same way with its
+`Server = https://github.com/parchlinux/Void/raw/refs/heads/main/x86_64/`.
+Expect breakage there; that is what it is for.
+
+## Install the core toolchain
+
+```bash
+$ sudo pacman -S --needed base-devel git
+```
+
+`base-devel` is the meta-package with `makepkg`, `gcc`, `make`, and friends.
+Add the tools for your paths:
+
+| Path | Packages |
+|---|---|
+| Packaging | `pkgctl namcap` (clean chroot builds and linting) |
+| ISO building | `archiso p7zip rsync` (plus the profile's own deps) |
+| GTK apps | `gtk4 libadwaita` plus language bindings you use |
+| Qt/KDE apps | `qt6-base extra-cmake-modules kcoreaddons ki18n` |
+| VM testing | `qemu-full` (or `qemu-desktop`) |
+
+## Editor and git configuration
+
+```bash
+$ git config --global user.name "Your Name"
+$ git config --global user.email "you@example.com"
+$ git config --global init.defaultBranch main
+```
+
+Generate an SSH key and add it to your GitHub account to work with the
+organization repositories (see [Git workflow](/start/git-workflow/)).
+
+## Verify your setup
+
+```bash
+$ makepkg --version
+pacman v7.x - libalpm v15.x
+$ git --version
+git version 2.x
+$ pacman -Sl world | head -3
+```
+
+If `pacman -Sl world` lists packages, the repository is live. You are ready
+for the [first package tutorial](/start/first-package/).

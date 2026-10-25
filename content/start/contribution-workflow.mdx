@@ -1,0 +1,55 @@
+---
+title: "Contribution workflow"
+description: "Where to report bugs, propose changes, and get your work reviewed."
+order: 6
+source: "ch. 3, 43; parchlinux/contributing repo"
+---
+
+# Contribution workflow
+
+Parch is community-driven: almost everything you see was contributed by
+volunteers. This page maps your change to the right door.
+
+## Choose the right channel
+
+| You want to… | Go to |
+|---|---|
+| Report a bug in a package or ISO | The repo's GitHub issue tracker |
+| Report a bug in the desktop experience | [Forum](https://forum.parchlinux.com) first, then an issue with details |
+| Propose a distribution-wide change | [rfcs repo](https://github.com/parchlinux/rfcs) |
+| Contribute docs | [wiki.parchlinux.com](https://wiki.parchlinux.com) and this portal's repo |
+| Contribute artwork | [Arts](https://github.com/parchlinux/Arts) and `artwork` repos |
+| Contribute a package | [Packaging: Submission](/packaging/submission/) |
+| Help users | [Forum](https://forum.parchlinux.com) and [Matrix](https://matrix.to/#/%23parchlinux:matrix.org) |
+
+## Reporting a bug well
+
+A useful report contains: what you did, what you expected, what happened,
+and the exact versions (`pacman -Q <pkg>`, ISO filename, kernel line from
+`uname -a`). For ISO bugs, include whether it reproduces in a fresh VM and
+in BIOS as well as UEFI mode.
+
+## Proposing a change
+
+Anything affecting more than one repository (a new edition, a change to
+default packages, a new first-party app) starts as an RFC in the
+[rfcs](https://github.com/parchlinux/rfcs) repository. Write the problem
+before the solution; the discussion shapes the rest.
+
+## Code review expectations
+
+<Checklist>
+  - Small PRs merge faster than large ones. A profile change with a clear
+    commit beats a 40-file dump.
+  - Every PR says how it was tested, with commands.
+  - Reviewers may ask for upstream alignment first (an Arch fix, an upstream
+    Calamares module). Expect it; it keeps the delta small.
+  - Persian translations and RTL behavior are part of review for UI changes,
+    not a follow-up.
+</Checklist>
+
+## Recognition
+
+Contributions are credited in commit history and release notes. Sustained
+contributors are invited into the organization; ask a maintainer when your
+work has grown past a few PRs.

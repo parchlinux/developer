@@ -1,0 +1,557 @@
+@import "tailwindcss";
+
+/* Class-based dark mode: the site toggles `.dark` on <html> (see
+   public/theme-init.js and components/theme-toggle.tsx). Without this,
+   Tailwind's `dark:` utilities follow the OS media query instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   Parch Developer Portal, Design Tokens (single source of truth)
+   Brand palette derived from parchlinux.com tokens:
+   teal oklch(0.7115 0.131 174.2) · blue oklch(0.6325 0.1882 253.02)
+   purple oklch(0.5548 0.2951 300.67) · gradient #21c796→#0385ce→#0d40bf
+   ============================================================ */
+
+@theme {
+  /* ---- Brand palette ---- */
+  --color-brand-teal: oklch(0.7115 0.131 174.2);
+  --color-brand-blue: oklch(0.6325 0.1882 253.02);
+  --color-brand-purple: oklch(0.5548 0.2951 300.6688);
+  --color-brand-deep: #0d40bf;
+  --color-brand-navy: #020917;
+  --color-brand-slate: #1b2639;
+
+  /* ---- Typography ---- */
+  --font-sans: "Saira", "Estedad", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono",
+    Menlo, Consolas, monospace;
+
+  /* ---- Radii ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-window: 16px;
+
+  /* ---- Layout ---- */
+  --container-content: 768px;
+  --container-docs: 1440px;
+
+  /* ---- Motion ---- */
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ============================================================
+   Semantic tokens, light (default) / dark
+   ============================================================ */
+
+/* Light tokens apply to the document root and to any scoped light preview
+   (e.g. a light demo stage inside a dark site page). Element-level
+   declarations win over values inherited from html.dark. */
+:root,
+.light-preview {
+  color-scheme: light;
+
+  --background: #fbfcfd;
+  --surface: #ffffff;
+  --surface-2: #f3f6f8;
+  --surface-3: #e9eef2;
+  --overlay: rgb(10 20 30 / 0.45);
+
+  --border: #e2e8ed;
+  --border-strong: #c7d2da;
+
+  --text: #101c26;
+  --text-muted: #455664;
+  --text-subtle: #64778a;
+  --text-invert: #ffffff;
+
+  --link: oklch(0.6325 0.1882 253.02);
+  --link-visited: oklch(0.5548 0.2951 300.6688);
+
+  --accent: oklch(0.7115 0.131 174.2);
+  --accent-strong: oklch(0.62 0.14 174.2);
+  --accent-soft: oklch(0.7115 0.131 174.2 / 0.12);
+  --accent-blue-soft: oklch(0.6325 0.1882 253.02 / 0.1);
+
+  --code-bg: #f5f8fa;
+  --code-border: #e2e8ed;
+  --code-inline-bg: #eef2f5;
+  --code-inline-text: #17324a;
+
+  --shadow-card: 0 1px 2px rgb(13 35 55 / 0.05), 0 8px 24px -12px rgb(13 35 55 / 0.1);
+  --shadow-raised: 0 2px 4px rgb(13 35 55 / 0.06), 0 16px 40px -16px rgb(13 35 55 / 0.16);
+
+  /* Callout roles */
+  --info: oklch(0.6325 0.1882 253.02);
+  --info-soft: oklch(0.6325 0.1882 253.02 / 0.08);
+  --success: oklch(0.6 0.13 160);
+  --success-soft: oklch(0.6 0.13 160 / 0.08);
+  --warning: oklch(0.68 0.15 75);
+  --warning-strong: oklch(0.55 0.14 75);
+  --warning-soft: oklch(0.68 0.15 75 / 0.1);
+  --danger: oklch(0.58 0.2 25);
+  --danger-strong: oklch(0.5 0.2 25);
+  --danger-soft: oklch(0.58 0.2 25 / 0.08);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #020917;
+  --surface: #0b1526;
+  --surface-2: #101d31;
+  --surface-3: #18273d;
+  --overlay: rgb(0 4 12 / 0.6);
+
+  --border: #1c2b40;
+  --border-strong: #2b3d55;
+
+  --text: #e7edf3;
+  --text-muted: #9db0c1;
+  --text-subtle: #6d8295;
+  --text-invert: #04101e;
+
+  --link: oklch(0.75 0.15 235);
+  --link-visited: oklch(0.75 0.18 300);
+
+  --accent: oklch(0.76 0.13 174.2);
+  --accent-strong: oklch(0.82 0.12 174.2);
+  --accent-soft: oklch(0.7115 0.131 174.2 / 0.16);
+  --accent-blue-soft: oklch(0.6325 0.1882 253.02 / 0.16);
+
+  --code-bg: #0a1421;
+  --code-border: #1c2b40;
+  --code-inline-bg: #12202f;
+  --code-inline-text: #a8d0ee;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-raised: 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+
+  --info: oklch(0.72 0.15 235);
+  --info-soft: oklch(0.6325 0.1882 253.02 / 0.14);
+  --success: oklch(0.7 0.13 160);
+  --success-soft: oklch(0.6 0.13 160 / 0.14);
+  --warning: oklch(0.78 0.15 80);
+  --warning-strong: oklch(0.85 0.14 85);
+  --warning-soft: oklch(0.68 0.15 75 / 0.16);
+  --danger: oklch(0.68 0.19 25);
+  --danger-strong: oklch(0.75 0.17 25);
+  --danger-soft: oklch(0.58 0.2 25 / 0.16);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-overlay: var(--overlay);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-text-invert: var(--text-invert);
+  --color-link: var(--link);
+  --color-link-visited: var(--link-visited);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-blue-soft: var(--accent-blue-soft);
+  --color-code-bg: var(--code-bg);
+  --color-code-border: var(--code-border);
+  --color-code-inline-bg: var(--code-inline-bg);
+  --color-code-inline-text: var(--code-inline-text);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--spacing) * 24);
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01" on; /* Saira alternate numerals */
+}
+
+[dir="rtl"] {
+  font-family: "Estedad", var(--font-sans);
+}
+
+/* Persistent, non-shifting scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Prose styles live in @layer base so Tailwind utilities (in the utilities
+   layer) can override them inside components. Without this, unlayered rules
+   like `.article p` beat every utility, inflating margins inside callouts,
+   cards, and checklists. */
+@layer base {
+/* ============================================================
+   Article typography (.article, rendered MDX)
+   ============================================================ */
+
+.article {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.article > *:first-child {
+  margin-top: 0;
+}
+
+.article h1,
+.article h2,
+.article h3,
+.article h4,
+.article h5,
+.article h6 {
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  scroll-margin-top: 6.5rem;
+}
+
+.article h1 {
+  font-size: 2.125rem;
+  margin: 0 0 1rem;
+}
+
+.article h2 {
+  font-size: 1.5rem;
+  margin: 2.75rem 0 0.85rem;
+  padding-top: 0.35em;
+}
+
+.article h3 {
+  font-size: 1.2rem;
+  margin: 2rem 0 0.65rem;
+}
+
+.article h4 {
+  font-size: 1.02rem;
+  margin: 1.6rem 0 0.5rem;
+}
+
+/* Prose paragraphs: markdown paragraphs are direct children of .article
+   (or inside li/blockquote). Paragraphs nested deeper belong to components
+   (callouts, cards, demos) and manage their own spacing. */
+.article > p {
+  margin: 0.85rem 0;
+}
+
+.article li > p {
+  margin: 0.3rem 0;
+}
+
+.article blockquote p {
+  margin: 0.5rem 0;
+}
+
+.article a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--link) 35%, transparent);
+  text-underline-offset: 0.2em;
+}
+
+.article a:hover {
+  text-decoration-color: var(--link);
+}
+
+/* Card-style links inside articles read as surfaces, not inline links. */
+.article a.group {
+  text-decoration: none;
+}
+
+.article strong {
+  font-weight: 640;
+  color: var(--text);
+}
+
+.article ul,
+.article ol {
+  margin: 0.85rem 0;
+  padding-inline-start: 1.4rem;
+}
+
+.article ul {
+  list-style: disc;
+}
+
+.article ol {
+  list-style: decimal;
+}
+
+.article li {
+  margin: 0.3rem 0;
+  padding-inline-start: 0.15rem;
+}
+
+.article li::marker {
+  color: var(--text-subtle);
+}
+
+.article blockquote {
+  margin: 1.1rem 0;
+  padding: 0.35rem 1.1rem;
+  border-inline-start: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.article hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2.25rem 0;
+}
+
+.article img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: 0.92em;
+  display: block;
+  overflow-x: auto;
+}
+
+.article th,
+.article td {
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.8rem;
+  text-align: start;
+  vertical-align: top;
+}
+
+.article th {
+  background: var(--surface-2);
+  font-weight: 620;
+  font-size: 0.9em;
+  letter-spacing: 0.01em;
+}
+
+.article tbody tr:nth-child(even) {
+  background: color-mix(in oklab, var(--surface-2) 55%, transparent);
+}
+
+/* Inline code */
+.article code:not(pre code) {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--code-inline-bg);
+  color: var(--code-inline-text);
+  border: 1px solid var(--code-border);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  white-space: nowrap;
+}
+
+.article pre {
+  margin: 0;
+}
+
+.article pre code {
+  font-family: var(--font-mono);
+  font-size: 0.855rem;
+  line-height: 1.7;
+}
+
+/* Plain fenced code blocks get full code-block chrome. Blocks wrapped in
+   <CodeBlock> sit inside the .codeblock figure, which provides its own. */
+.article pre {
+  position: relative;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-md);
+  padding: 0.95rem 1.05rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+
+.article pre code {
+  display: block;
+  min-width: max-content;
+}
+
+.codeblock pre {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* Copy button added to plain blocks by the CodeEnhancer client component */
+.code-copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 6px;
+  border: 1px solid var(--code-border);
+  background: var(--surface-2);
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms var(--ease-out-soft);
+}
+
+.article pre:hover .code-copy-btn,
+.code-copy-btn:focus-visible {
+  opacity: 1;
+}
+
+/* ============================================================
+   Shiki dual-theme code blocks (set by mdx-code component)
+   ============================================================ */
+
+.shiki {
+  background-color: var(--code-bg) !important;
+}
+
+.codeblock .shiki span {
+  color: var(--shiki-light);
+}
+.dark .codeblock .shiki span {
+  color: var(--shiki-dark);
+}
+
+/* Highlighted lines (rehype-pretty-code style) */
+.codeblock .highlighted {
+  background: var(--accent-blue-soft);
+  display: inline-block;
+  width: 100%;
+}
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+
+.brand-gradient-text {
+  background: linear-gradient(90deg, #21c796 0%, #0385ce 60%, #0d40bf 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, #21c796 0%, #0385ce 55%, #0d40bf 130%);
+}
+
+.grid-texture {
+  background-image: linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 0%, black 30%, transparent 75%);
+}
+
+/* Callout + checklist row layout, pinned in plain CSS so the icon always
+   sits beside the text even if utility generation hiccups. */
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.callout > svg {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+.checklist-item {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+.checklist-item > svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+} /* end @layer base */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Indeterminate progress sweep */
+@keyframes parch-progress-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.progress-indeterminate {
+  animation: parch-progress-sweep 1.6s var(--ease-out-soft) infinite;
+}

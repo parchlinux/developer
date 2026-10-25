@@ -1,0 +1,51 @@
+---
+title: "Platform integration"
+description: "KDE Plasma, GTK/libadwaita, Wayland, and system theme cooperation."
+order: 24
+---
+
+# Platform integration
+
+The HIG defines intent; the toolkit supplies native widgetry. A Parch app
+should feel native to its desktop first and Parch-branded second.
+
+## Toolkit mapping
+
+| HIG intent | KDE Plasma (Qt) | GNOME (GTK4/libadwaita) |
+|---|---|---|
+| Header bar | Window titlebar / KXmlGui toolbar | `Adw.HeaderBar` |
+| Sidebar navigation | `Kirigami.PageRow` / QListWidget | `Adw.NavigationSplitView` |
+| Settings rows | Kirigami FormLayout / KCM modules | `Adw.PreferencesGroup` + `Adw.ActionRow` |
+| Dialogs | QDialog | `Adw.MessageDialog` |
+| Toasts | KNotification / custom | `Adw.Toast` / `Adw.ToastOverlay` |
+| Accent color | System accent (Plasma 6) | `@accent_color` (GTK named colors) |
+| Dark theme | Plasma color scheme | `color-scheme` gsetting |
+
+Real Parch apps already span both worlds: parch-welcome and the Kernel
+Manager are Rust/Python + libadwaita; plasma-setup is a C++/Qt Plasma tool.
+Follow the toolkit of your target desktop, do not ship a Qt app that
+imitates libadwaita chrome, or vice versa.
+
+## System theme compatibility
+
+<Checklist>
+  - Read colors through the toolkit theme; never parse theme files.
+  - Support third-party color schemes: if the user's Plasma theme is red,
+    your app's accents should follow where the toolkit exposes them.
+  - Icons come from the system icon theme first, bundled only for app icons.
+  - Fonts come from the system font settings; the HIG type scale is the
+    *ratio*, not a hardcoded pixel list.
+</Checklist>
+
+## Wayland behavior
+
+- Use toolkit Wayland backends by default; XWayland only for APIs that truly
+  lack a Wayland equivalent.
+- Global shortcuts go through the compositor's shortcut protocol with user
+  consent, never X11 grabs.
+- Window positioning is a request, not a right, don't center dialogs by
+  force; the compositor decides.
+- Screen sharing, screenshots, and color pickers go through the
+  xdg-desktop-portal portals.
+- Test at fractional scaling (125%, 150%), this is where Wayland regressions
+  surface.

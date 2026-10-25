@@ -1,0 +1,62 @@
+---
+title: "App Designs"
+description: "Full-window mock application designs demonstrating Parch look and behavior, built with the real design system."
+index: true
+order: 0
+---
+
+# App Designs
+
+These mock applications demonstrate how Parch software should look and
+behave. Each one is assembled from the same design tokens and components shown
+in the [Design System](/design/), nothing here is a disconnected mockup. Use
+the theme switch on every mock to check light and dark.
+
+Two kinds of entry live in this gallery:
+
+- **First-party app**, the application exists (e.g. Pastor, parch-welcome);
+  the mock illustrates its design direction and interaction patterns.
+- **Design concept**, a proposed design that does not ship today; it shows
+  the HIG applied to a surface Parch has not built yet.
+
+<Callout kind="important" title="Design references, not claims">
+  Mocks marked “design concept” are not announcements of shipping software.
+  They exist so designers and developers have a concrete target, and so the
+  HIG rules have full-window examples.
+</Callout>
+
+## The gallery
+
+<CardGrid>
+  <Card title="Parch Store, Pastor" href="/mockups/store/">
+    Discovery, categories, one-click install, and update management.
+  </Card>
+  <Card title="Parch Settings" href="/mockups/settings/">
+    Preference surfaces with repository-backed update settings.
+  </Card>
+  <Card title="Parch Welcome" href="/mockups/welcome/">
+    The bilingual first-run experience for new users.
+  </Card>
+  <Card title="System Update Manager" href="/mockups/updater/">
+    Transaction view with security flags and cancellation.
+  </Card>
+  <Card title="File Manager" href="/mockups/file-manager/">
+    A concept exploration of file browsing.
+  </Card>
+  <Card title="Network Configuration" href="/mockups/network/">
+    Connection management with offline-first behavior.
+  </Card>
+  <Card title="Package Information" href="/mockups/package-info/">
+    Package metadata, dependencies, and files in one window.
+  </Card>
+  <Card title="Repository & Build Utility" href="/mockups/repo-builder/">
+    A developer tool for ISO profiles and build environments.
+  </Card>
+</CardGrid>
+
+## Toolkit reality
+
+Mocks represent Parch's shared design language. When an application is built
+with GTK/libadwaita or Qt, it keeps its toolkit's native widgetry, header
+bars, shortcuts, and menus map to toolkit equivalents. See
+[Platform integration](/hig/platform-integration/) for the mapping rules.

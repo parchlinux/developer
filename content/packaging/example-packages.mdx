@@ -1,0 +1,291 @@
+---
+title: "Example packages"
+description: "Four complete PKGBUILDs to copy from: a Rust CLI, a GTK/Python desktop app, a systemd service with sysusers and tmpfiles, and a split library."
+order: 3
+source: "ch. 34, 38, 51"
+---
+
+# Example packages
+
+These four PKGBUILDs cover the packaging patterns most Parch contributions need. Each is complete and syntactically valid; package names, URLs, and checksums are illustrative, so regenerate checksums with `updpkgsums` against your real sources before building. General rules for every construct are on the [PKGBUILD reference](/packaging/pkgbuild-reference/) page.
+
+## 1. Command-line tool (Rust)
+
+A small Rust binary with shell completions and a man page shipped in the source repository. No install script is needed: the package drops plain files and pacman handles everything.
+
+<CodeBlock title="PKGBUILD, Rust CLI with completions and man page">
+
+```bash
+# Maintainer: Parch Developers <contact@parchlinux.com>
+
+pkgname=parch-taskctl
+pkgver=0.9.1
+pkgrel=1
+pkgdesc="Task list manager for the Parch command line"
+arch=('x86_64')
+url="https://github.com/parchlinux/parch-taskctl"
+license=('GPL-3.0-or-later')
+depends=('glibc' 'gcc-libs')
+makedepends=('cargo')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/parchlinux/parch-taskctl/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('7c1f4a9e2d8b3c6a5f0e9d1b8a7c4f2e6d3b9a1c8f5e2d4b7a9c1f3e6d8b2a5c')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release --all-features
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  install -Dm755 -t "${pkgdir}/usr/bin" "target/release/taskctl"
+  install -Dm644 completions/taskctl.bash "${pkgdir}/usr/share/bash-completion/completions/taskctl"
+  install -Dm644 completions/taskctl.zsh "${pkgdir}/usr/share/zsh/site-functions/_taskctl"
+  install -Dm644 completions/taskctl.fish "${pkgdir}/usr/share/fish/vendor_completions.d/taskctl.fish"
+  install -Dm644 docs/taskctl.1 "${pkgdir}/usr/share/man/man1/taskctl.1"
+  install -Dm644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+```
+
+</CodeBlock>
+
+## 2. Desktop application (GTK and Python)
+
+A Python/GTK application installs a launcher, an icon into the hicolor theme, and AppStream metadata so it appears in software centers. No `.install` script is needed here either: pacman hooks refresh the desktop database, icon cache, and schemas automatically.
+
+<CodeBlock title="PKGBUILD, GTK/Python desktop application">
+
+```bash
+# Maintainer: Parch Developers <contact@parchlinux.com>
+
+pkgname=parch-insight
+pkgver=2.1.0
+pkgrel=1
+pkgdesc="System information dashboard for the Parch desktop"
+arch=('any')
+url="https://github.com/parchlinux/parch-insight"
+license=('MIT')
+depends=('gtk4' 'libadwaita' 'python' 'python-gobject')
+makedepends=()
+source=("https://github.com/parchlinux/parch-insight/archive/refs/tags/v${pkgver}/parch-insight-${pkgver}.tar.gz")
+sha256sums=('2e8d5b1a9c7f3e6d4b0a8c2f7e1d5b9a3c6f4e8d2b1a7c5f9e3d6b0a4c8f2e7d')
+
+build() {
+  cd "parch-insight-${pkgver}"
+  python -m compileall -q -d / usr/lib/parch-insight || true
+}
+
+package() {
+  cd "parch-insight-${pkgver}"
+  install -d "${pkgdir}/usr/lib/parch-insight"
+  install -m644 insight/*.py -t "${pkgdir}/usr/lib/parch-insight/"
+  install -m755 bin/parch-insight "${pkgdir}/usr/bin/parch-insight"
+
+  install -Dm644 data/parch-insight.desktop "${pkgdir}/usr/share/applications/parch-insight.desktop"
+  install -Dm644 data/icons/parch-insight.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/parch-insight.svg"
+  install -Dm644 data/metainfo.xml "${pkgdir}/usr/share/metainfo/parch-insight.metainfo.xml"
+  install -Dm644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+```
+
+</CodeBlock>
+
+The referenced files must be complete and valid:
+
+<CodeBlock title="data/parch-insight.desktop">
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Insight
+GenericName=System Information
+Comment=See CPU, memory, and disk status at a glance
+Exec=parch-insight
+Icon=parch-insight
+Terminal=false
+Categories=System;Monitor;
+Keywords=system;monitor;information;
+StartupNotify=true
+```
+
+</CodeBlock>
+
+<CodeBlock title="data/metainfo.xml (AppStream)">
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>parch-insight</id>
+  <name>Insight</name>
+  <summary>System information dashboard for the Parch desktop</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <launchable type="desktop-id">parch-insight.desktop</launchable>
+  <releases>
+    <release version="2.1.0" date="2026-08-14">
+      <description><p>Adds disk health view and Persian translation.</p></description>
+    </release>
+  </releases>
+</component>
+```
+
+</CodeBlock>
+
+## 3. Systemd service with sysusers and tmpfiles
+
+A background agent runs as its own dedicated user created by `sysusers.d` and gets a state directory from `tmpfiles.d`. The unit uses hardening defaults. Here an install script is appropriate to stop the service when the package is removed.
+
+<CodeBlock title="PKGBUILD, systemd service">
+
+```bash
+# Maintainer: Parch Developers <contact@parchlinux.com>
+
+pkgname=parch-syncagent
+pkgver=1.0.3
+pkgrel=1
+pkgdesc="Background agent that syncs Parch settings across machines"
+arch=('any')
+url="https://github.com/parchlinux/parch-syncagent"
+license=('GPL-3.0-or-later')
+depends=('python')
+source=("https://github.com/parchlinux/parch-syncagent/archive/refs/tags/v${pkgver}/parch-syncagent-${pkgver}.tar.gz")
+sha256sums=('9a3f6c2e8d1b4a7c5f0e3d9b2a8c1f6e4d7b0a9c3f5e8d1b4a6c2f9e3d7b0a5c')
+install="${pkgname}.install"
+
+package() {
+  cd "parch-syncagent-${pkgver}"
+  install -Dm755 syncagent "${pkgdir}/usr/lib/parch-syncagent/syncagent"
+
+  install -Dm644 packaging/syncagent.service "${pkgdir}/usr/lib/systemd/system/syncagent.service"
+  install -Dm644 packaging/syncagent.sysusers "${pkgdir}/usr/lib/sysusers.d/parch-syncagent.conf"
+  install -Dm644 packaging/syncagent.tmpfiles "${pkgdir}/usr/lib/tmpfiles.d/parch-syncagent.conf"
+  install -Dm644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+```
+
+</CodeBlock>
+
+<CodeBlock title="packaging/syncagent.service">
+
+```ini
+[Unit]
+Description=Parch settings sync agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=syncagent
+ExecStart=/usr/lib/parch-syncagent/syncagent
+Restart=on-failure
+RuntimeDirectory=syncagent
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+</CodeBlock>
+
+<CodeBlock title="packaging/syncagent.sysusers and syncagent.tmpfiles">
+
+```text
+u syncagent - "Parch settings sync agent"
+```
+
+```text
+d /var/lib/syncagent 0750 syncagent syncagent -
+```
+
+</CodeBlock>
+
+<CodeBlock title="parch-syncagent.install">
+
+```bash
+pre_remove() {
+    if systemctl is-active --quiet syncagent.service; then
+        systemctl stop syncagent.service
+    fi
+}
+```
+
+</CodeBlock>
+
+<Callout kind="note" title="Do not enable services in install scripts">
+  Never call `systemctl enable` from a `.install` script. systemd pacman hooks
+  run `sysusers`, `tmpfiles`, and `daemon-reload` for you; enabling a service
+  is the admin's decision, not the packager's.
+</Callout>
+
+## 4. Library as a split package
+
+One source builds a library plus its documentation. `pkgbase` groups them, one `package_<name>()` function per output. On a soname bump you must also rebuild every dependent package, see [maintenance](/packaging/maintenance/).
+
+<CodeBlock title="PKGBUILD, split library">
+
+```bash
+# Maintainer: Parch Developers <contact@parchlinux.com>
+
+pkgbase=parch-libchart
+pkgname=('parch-libchart' 'parch-libchart-docs')
+pkgver=3.2.1
+pkgrel=1
+pkgdesc="Chart rendering library for Parch desktop tools"
+arch=('x86_64')
+url="https://github.com/parchlinux/parch-libchart"
+license=('LGPL-2.1-or-later')
+makedepends=('meson' 'ninja' 'gtk-doc')
+source=("https://github.com/parchlinux/parch-libchart/archive/refs/tags/v${pkgver}/parch-libchart-${pkgver}.tar.gz")
+sha256sums=('4b8d2a6c9f1e3d7b5a0c8f2e6d9b3a1c7f4e8d2b6a0c9f3e1d7b5a8c2f4e9d6b')
+
+build() {
+  cd "parch-libchart-${pkgver}"
+  meson setup build --prefix=/usr --buildtype=plain
+  meson compile -C build
+}
+
+check() {
+  cd "parch-libchart-${pkgver}"
+  meson test -C build
+}
+
+package_parch-libchart() {
+  depends=('glibc')
+  provides=('libchart.so=3-64')
+  cd "parch-libchart-${pkgver}"
+  DESTDIR="${pkgdir}" meson install -C build
+  rm -r "${pkgdir}/usr/share/doc"
+}
+
+package_parch-libchart-docs() {
+  pkgdesc="Developer documentation for parch-libchart"
+  arch=('any')
+  cd "parch-libchart-${pkgver}"
+  DESTDIR="${pkgdir}" meson install -C build
+  rm -r "${pkgdir}/usr/include" "${pkgdir}/usr/lib"
+}
+```
+
+</CodeBlock>
+
+## Related pages
+
+- [Building packages](/packaging/building-packages/): how to run these builds.
+- [Testing and validation](/packaging/testing-validation/): desktop file and AppStream validators.
+- [Submission](/packaging/submission/): packaging one of these for the repositories.

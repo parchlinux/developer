@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pacuG" x1="64" y1="8" x2="64" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d39e"/>
+      <stop offset="0.55" stop-color="#0fa6d8"/>
+      <stop offset="1" stop-color="#1553c9"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#pacuG)"/>
+  <!-- terminal window -->
+  <rect x="28" y="32" width="72" height="64" rx="12" fill="white" fill-opacity="0.14"/>
+  <rect x="28" y="32" width="72" height="64" rx="12" fill="none" stroke="white" stroke-width="3"/>
+  <!-- title bar dots -->
+  <circle cx="39" cy="44" r="2.6" fill="white"/>
+  <circle cx="49" cy="44" r="2.6" fill="white" fill-opacity="0.6"/>
+  <circle cx="59" cy="44" r="2.6" fill="white" fill-opacity="0.35"/>
+  <!-- prompt chevron -->
+  <path d="M40 60 l8 7 -8 7" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- typed command line + cursor -->
+  <line x1="54" y1="67" x2="78" y2="67" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <rect x="84" y="61" width="8" height="12" rx="2" fill="white" fill-opacity="0.9"/>
+</svg>

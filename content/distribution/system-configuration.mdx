@@ -1,0 +1,59 @@
+---
+title: "System configuration"
+description: "base-config, parch-config, and the defaults shipped on installed systems."
+order: 3
+---
+
+# System configuration
+
+After the installer finishes, the installed system differs from vanilla
+Arch in a controlled set of ways. Those differences live in configuration
+packages so they survive updates and stay reviewable.
+
+## The configuration packages
+
+| Package | Repository | What it sets |
+|---|---|---|
+| `base-config` | `base-config` | Core system defaults applied on install |
+| `parch-config` | `parch-config` | Parch-specific behavior and tooling |
+| `parch-zsh-config` | `parch-zsh-config` | Default zsh experience |
+| `parch-vim-config` | `parch-vim-config` | Editor defaults |
+| `libreoffice-config` | `libreoffice-config` | Office suite defaults |
+
+The design rule: **configuration is data, not scripts.** Packages ship
+files into `/etc` (with `backup=` entries so user edits survive) and use
+pacman hooks only where a command must run (locale generation, cache
+updates).
+
+## Editing defaults
+
+1. Find the owning package: `pacman -Qo /path/to/file` tells you which
+   package owns a file on an installed system.
+2. Change it in the component repo, keeping the old file's behavior for
+   `pacman`'s upgrade machinery (`.pacnew` handling).
+3. Test the upgrade path: install the previous package version, then
+   upgrade to yours, and confirm the `.pacnew` flow behaves as intended.
+
+## What belongs where
+
+<Checklist>
+  - Machine-independent defaults (themes, shell config): the config package.
+  - Machine-specific values (hostname, locale choices): the installer writes
+    them at install time; config packages must not overwrite.
+  - User-level preferences: nothing in system packages; use skel
+    (`/etc/skel`) sparingly, since it only affects newly created users.
+</Checklist>
+
+## Testing configuration changes
+
+```bash
+# Diff a config package against what is on disk
+$ pacman -Qkk <pkg>
+
+# Simulate what an upgrade would do
+$ sudo pacman -Suu --print <pkg>
+```
+
+Upgrade tests belong in every configuration PR: install old, upgrade to
+new, verify no user-visible reset. The
+[testing handbook](/testing/) covers the general method.

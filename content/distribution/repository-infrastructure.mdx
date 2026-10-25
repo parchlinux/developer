@@ -1,0 +1,70 @@
+---
+title: "Repository infrastructure"
+description: "Running world and Void: tooling, promotion, and integrity."
+order: 5
+source: "ch. 32, 47, 69"
+---
+
+# Repository infrastructure
+
+The [world](https://github.com/parchlinux/world) and
+[Void](https://github.com/parchlinux/Void) repositories are git repos
+served over GitHub raw URLs. This page documents how they operate and the
+integrity considerations that follow from that design.
+
+## Layout
+
+```text
+world/
+├── README.md
+├── auto-gen.py             tooling that regenerates the sync database
+└── x86_64/
+    ├── world.db.tar.gz     pacman sync database (consumed by pacman -Sy)
+    ├── world.files.tar.gz  file lists (pacman -Fy)
+    └── *.pkg.tar.zst       the package archives themselves
+```
+
+Adding a package means committing its `.pkg.tar.zst` and regenerating the
+database with `repo-add`. Removing means deleting the archive and
+re-running `repo-remove`. Git history gives a full audit trail of what was
+served, when.
+
+## Promotion flow
+
+```text
+maintainer builds + tests
+   → package lands in Void (testing)
+   → testers validate on real systems
+   → maintainer copies the archive to world + regenerates db
+   → users receive it on the next pacman -Syu
+```
+
+The [submission workflow](/packaging/submission/) describes the review
+before anything enters Void.
+
+## Operational care
+
+<Checklist>
+  - Never force-push main: users resolve packages by raw URL, and history
+    is the only rollback mechanism.
+  - Keep old package versions until dependents are rebuilt; deleting a
+    library version mid-upgrade breaks users partially updated.
+  - Regenerate `world.files` after every change so `pacman -F` stays
+    truthful.
+  - Watch repo size: GitHub raw serving is not a CDN contract for huge
+    files; oversized packages should move to releases or a mirror.
+</Checklist>
+
+## Integrity status
+
+Two consequences of the raw-URL design, stated plainly:
+
+1. **No package signatures today.** `SigLevel = Never` reflects reality.
+   Introducing signing (repo key, `pacman-key` integration, signed sync
+   dbs) is a planned hardening step; see [Security](/security/).
+2. **Transport trust.** Users currently trust GitHub's TLS and the
+   repository account. Compromise of either is compromise of the repo,
+   which is the main argument for the signing work above.
+
+Mirror fronting (for example `mirror.parchlinux.com`) can be placed in
+front of the same tree; the source of truth remains the git repositories.

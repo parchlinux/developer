@@ -1,0 +1,118 @@
+---
+title: "Archiso fundamentals"
+description: "What archiso and mkarchiso are, how a Parch ISO build proceeds phase by phase, and which build and boot modes the editions use."
+order: 2
+source: "ch. 8, 13, 14, 27"
+---
+
+# Archiso fundamentals
+
+Every Parch ISO is produced by **archiso**, the same upstream tooling that builds the official Arch Linux installation media. Understanding what archiso does, and what Parch changes on top of it, makes every other page in this section easier.
+
+## What archiso is
+
+Archiso is a collection of bash scripts and configuration templates maintained by the Arch Linux team. Its core command, **`mkarchiso`**, takes a *profile directory* as input and produces a bootable image. It handles the entire pipeline automatically: installing packages, layering on custom files, generating the initramfs, wiring up bootloaders, compressing the root filesystem, and assembling the final ISO.
+
+Upstream archiso ships two reference profiles you can compare against:
+
+- **baseline**, the smallest possible profile, useful as a structural example.
+- **releng**, the full configuration that builds the monthly Arch Linux release. Most of the live-environment scripts Parch profiles carry (`choose-mirror`, `Installation_guide`, `livecd-sound`, `livecd-alsa-unmuter`) come from this profile.
+
+## The mkarchiso command
+
+The tool lives in the `archiso` package. Check its options with `mkarchiso -h`; the ones that matter day to day:
+
+| Option | Meaning | Default |
+| --- | --- | --- |
+| `-v` | Verbose output, use it while developing | off |
+| `-w DIR` | Working directory for intermediate state | `work/` |
+| `-o DIR` | Output directory for the finished image | `out/` |
+| (last argument) | Path to the profile directory | required |
+
+A Parch build is therefore either of these, run as root from the profile repository root:
+
+<CodeBlock title="Two equivalent invocations">
+
+```bash
+$ sudo ./build.sh            # the repository's wrapper script (see below)
+# mkarchiso -v iso/          # calling mkarchiso directly
+```
+
+</CodeBlock>
+
+The ISO lands in `out/` as `$iso_name-$iso_version-x86_64.iso`, using the values from `iso/profiledef.sh`.
+
+## How a build works, end to end
+
+When you run `mkarchiso -v iso/`, the phases execute in this order. Knowing them tells you where to look when a build fails.
+
+1. **Profile parsing.** mkarchiso sources `iso/profiledef.sh` and validates the variables: `iso_name`, `bootmodes`, `airootfs_image_type`, and friends.
+2. **Pacman configuration.** The profile's `iso/pacman.conf` is staged and rewritten for the build, this is the file that decides which repositories the build sees, including the Parch `[world]` repository.
+3. **Overlay copy.** Everything under `iso/airootfs/` is copied into the build's airootfs tree. Files placed here will later sit *on top of* whatever packages install.
+4. **Package installation.** mkarchiso runs pacstrap/pacman with `iso/pacman.conf` against the package list in `iso/packages.x86_64`, installing the whole live system into the airootfs. This phase is the longest, it downloads several gigabytes on a first build.
+5. **Boot artifacts.** The kernel, microcode, and initramfs are collected into the ISO's boot tree, and every configured `bootmode` is generated: the Syslinux (BIOS), GRUB, and systemd-boot (UEFI) configurations are copied from `iso/syslinux/`, `iso/grub/`, and `iso/efiboot/`, with the placeholders `%INSTALL_DIR%` and `%ARCHISO_LABEL%` replaced by the profile's `install_dir` and `iso_label` values.
+6. **Squashfs image.** The finished airootfs is compressed into a single image, `mksquashfs` when `airootfs_image_type="squashfs"`, which lands at `/$install_dir/x86_64/airootfs.sfs` inside the ISO. Parch's options (`-comp xz -Xbcj x86 -b 1M -Xdict-size 1M`) trade some build time for a noticeably smaller image.
+7. **ISO assembly.** xorriso combines the boot tree, the squashfs image, and the El Torito/MBR boot records into the final ISOHYBRID image, one file that boots as an optical disc and as a USB hard disk.
+
+If a build dies in phase 4, the problem is a package or repository; in phase 5, a bootloader file; in phase 6–7, usually disk space.
+
+## Build modes
+
+The `buildmodes` array in `profiledef.sh` selects what gets produced. Parch profiles set exactly one:
+
+```bash
+buildmodes=('iso')
+```
+
+Upstream archiso also knows a `bootstrap` buildmode (a compressed rootfs tarball for network installs) and `netboot` artifacts (for iPXE). The `bootstrap_packages.x86_64` file in Parch profiles exists for that upstream bootstrap mode; with `buildmodes=('iso')` it is not exercised by a normal build. Unless you deliberately add `bootstrap`, leave the array alone.
+
+## Boot modes
+
+The `bootmodes` array lists the boot paths mkarchiso must configure. Every Parch edition ships the same four:
+
+```bash
+bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito'
+           'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')
+```
+
+| Boot mode | Firmware | Medium | What it provides |
+| --- | --- | --- | --- |
+| `bios.syslinux.mbr` | BIOS | USB stick / hard disk | Syslinux MBR code that loads the kernel from the ISOHYBRID image |
+| `bios.syslinux.eltorito` | BIOS | Optical disc | El Torito boot catalog pointing at Syslinux |
+| `uefi-x64.systemd-boot.esp` | UEFI | USB stick / hard disk | systemd-boot as an EFI executable on the image's ESP |
+| `uefi-x64.systemd-boot.eltorito` | UEFI | Optical disc | systemd-boot reachable through the El Torito UEFI entry |
+
+The practical consequence: one image covers old BIOS laptops, modern UEFI machines, DVDs, and USB sticks, and each path can be tested independently in QEMU (see [Testing an ISO](/iso/testing-iso/)). The configuration files behind each mode live in `iso/syslinux/` and `iso/efiboot/`, see [Bootloader configuration](/iso/bootloader-config/).
+
+## Upstream archiso vs Parch's custom archiso-99-1
+
+<Callout kind="important" title="Parch builds may use a custom archiso package">
+  The profile repositories do not all use the same build tool. The `build.sh` in `parch-iso-template` installs the stock `archiso` package with pacman, while the `build.sh` in the desktop editions (for example `parch-iso-plasma`) installs its build dependencies, `git`, `wget`, `github-cli`, `p7zip`, `reflector`, `rsync`, and then fetches and installs a **Parch-built `archiso-99-1` package**. That package tracks upstream archiso with Parch adjustments, so editions build with a pinned tool version instead of whatever the distro currently ships.
+</Callout>
+
+What this means in practice:
+
+- **You do not need to pre-install archiso.** Both `build.sh` flavors install their own toolchain, the wrapper is the supported entry point.
+- **Behavior differences are small.** `archiso-99-1` follows the upstream profile format: the same `profiledef.sh` keys, the same `bootmodes`, the same phase order. Anything documented here applies to both.
+- **Direct invocation differs.** With the stock package you run `sudo mkarchiso -v iso/`; with `archiso-99-1` installed it is the same command, the difference is which package provided the binary.
+
+The template `build.sh` does one more thing after the build: it packs `out/` into **7z multi-volume archives** and generates an `md5sums.txt`, the same artifact shape the release CI attaches to stable releases (see [Release automation](/iso/release-automation/)).
+
+## Expected results
+
+- `sudo ./build.sh` from any edition repository ends with an ISO in `out/` plus, on the template flavor, `.7z.001/.7z.002/…` volumes and `md5sums.txt`.
+- `mkarchiso -h` runs and prints usage (confirms the toolchain is installed).
+- The four boot modes above are configured automatically; you never invoke grub-install or syslinux yourself.
+
+## Troubleshooting
+
+- **`mkarchiso: command not found`**, the wrapper failed to install its toolchain (often a network or pacman mirror problem). Fix the network, remove the leftover `work/` directory, and rerun `sudo ./build.sh`.
+- **Build dies with `failed to commit transaction`**, a package in `packages.x86_64` is missing or conflicting. See [Package lists](/iso/packages-x86_64/).
+- **`out/` is empty after a "successful" run**, check for a custom `-o` argument in `build.sh`, and confirm you ran it as root from the repository root.
+- **Subsequent builds behave strangely**, stale state in `work/` from an interrupted run. Remove `work/` (safe; it is all regenerable) and rebuild.
+
+## Related pages
+
+- [Profile structure](/iso/profile-structure/), the input files this pipeline consumes.
+- [Build your first ISO](/iso/build-first-iso/), do a real build now.
+- [Release automation](/iso/release-automation/), the same pipeline run by CI.

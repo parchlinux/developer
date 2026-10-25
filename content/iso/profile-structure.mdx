@@ -1,0 +1,167 @@
+---
+title: "Profile structure"
+description: "Complete anatomy of a Parch ISO profile repository, with a full profiledef.sh reference and the file_permissions system."
+order: 3
+source: "ch. 9, 20, 21, 22, 31; live parch-iso-* repositories"
+---
+
+# Profile structure
+
+A Parch ISO profile is one git repository per edition. This page walks through every file and directory, then documents `profiledef.sh`, the file that ties the profile together, in full.
+
+<Callout kind="important" title="Repositories, not directories">
+  Editions live as separate GitHub repositories under the `parchlinux` organization (`parch-iso-plasma`, `Parch-iso-gnome`, `parch-iso-hyprland`, `parch-iso-xfce`, `parch-iso-mini`, `parch-iso-lite`, `parch-iso-base`, `parch-iso-cosmic`, `parch-iso-dwm`, `parch-iso-template`). Older material describing a single `iso` repo with `team/` profile subdirectories is outdated.
+</Callout>
+
+## Repository layout
+
+```text
+parch-iso-<edition>/
+├── build.sh                      # Root-required build wrapper
+├── README.md
+└── iso/
+    ├── profiledef.sh             # Profile definition sourced by mkarchiso
+    ├── packages.x86_64           # Live-system package manifest
+    ├── bootstrap_packages.x86_64 # Package manifest for the upstream bootstrap buildmode
+    ├── pacman.conf               # Repository configuration used during the build
+    ├── public.key                # Parch repository public key material
+    ├── airootfs/                 # Overlay tree copied into the live root filesystem
+    ├── efiboot/                  # systemd-boot configuration (UEFI bootmodes)
+    ├── grub/                     # GRUB configuration
+    └── syslinux/                 # Syslinux configuration (BIOS bootmodes)
+```
+
+The repository is deliberately self-contained: cloning it and running `sudo ./build.sh` is enough to reproduce the ISO, with no files fetched from anywhere except the package repositories configured in `pacman.conf`.
+
+## What each piece does
+
+### `build.sh`
+
+The supported entry point. Both flavors require root (mkarchiso needs to create device nodes and mount filesystems), install their own dependencies, then run `mkarchiso -v iso/`:
+
+- **Template flavor** installs the stock `archiso` package, builds, then packs `out/` into 7z multi-volume archives and writes an `md5sums.txt`.
+- **Desktop-edition flavor** (for example Plasma) installs `git`, `wget`, `github-cli`, `p7zip`, `reflector`, `rsync`, and Parch's custom `archiso-99-1` package, then builds.
+
+### `iso/profiledef.sh`
+
+A bash file sourced by mkarchiso. It defines the ISO's identity, image compression, boot modes, and end-of-build permission fixes. Full reference below.
+
+### `iso/packages.x86_64` and `iso/bootstrap_packages.x86_64`
+
+Plain-text package manifests, one name per line, comments with `#`. `packages.x86_64` is the authoritative list of what is installed into the live system; `bootstrap_packages.x86_64` feeds upstream's `bootstrap` buildmode (not used by a plain `buildmodes=('iso')` build). See [Package lists](/iso/packages-x86_64/).
+
+### `iso/pacman.conf`
+
+The repository configuration used *during the build*, not your host's. It mirrors a normal Arch `pacman.conf` with one crucial addition: the Parch `[world]` repository listed before `[core]` and `[extra]`, so Parch packages take precedence:
+
+```ini
+[world]
+SigLevel = Never
+Server = https://github.com/parchlinux/world/raw/refs/heads/main/x86_64/
+```
+
+`SigLevel = Never` means packages from `[world]` are trusted without signature checks. Keep the repository *above* `[core]`/`[extra]`, pacman resolves to the first repository that carries a package name.
+
+<Callout kind="warning" title="ppr, pcp, and git.parchlinux.com are gone">
+  Older profiles and docs reference the `ppr`/`pcp` repositories or `git.parchlinux.com` URLs. Those services are dead. If you see them in a fork, replace them with the `[world]` configuration above before building.
+</Callout>
+
+### `iso/public.key`
+
+GPG public key material shipped with the profile, available to the build's pacman keyring setup for Parch-signed packages. Because `[world]` is currently consumed with `SigLevel = Never`, the key is not strictly exercised by today's builds; profiles keep it for the signed-repository work proposed in [Release automation](/iso/release-automation/).
+
+### `iso/airootfs/`
+
+The live root filesystem overlay, mirrored onto installed packages after they install. This is where autologin, networking, sudo, pacman hooks, the Calamares configuration, and live-only scripts live. See [airootfs customization](/iso/airootfs-customization/).
+
+### `iso/efiboot/`, `iso/grub/`, `iso/syslinux/`
+
+Bootloader configuration trees. The `bootmodes` array decides which ones mkarchiso actually materializes into the ISO. See [Bootloader configuration](/iso/bootloader-config/).
+
+## profiledef.sh reference
+
+Everything mkarchiso reads from the profile is a bash variable assignment. Here is a real-shaped example matching the Parch profiles:
+
+<CodeBlock title="iso/profiledef.sh (representative of the Parch profiles)">
+
+```bash
+#!/usr/bin/env bash
+# shellcheck disable=SC2034
+
+iso_name="ParchLinux"
+iso_label="PARCHLINUX_$(date +%Y%m)"
+iso_publisher="Parch Linux <https://parchlinux.com>"
+iso_application="Parch Linux Live/Installer DVD"
+iso_version="$(date +%Y.%m.%d)"
+install_dir="arch"
+buildmodes=('iso')
+bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito'
+           'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')
+arch="x86_64"
+pacman_conf="pacman.conf"
+airootfs_image_type="squashfs"
+airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')
+file_permissions=(
+  ["/etc/shadow"]="0:0:0400"
+  ["/root"]="0:0:750"
+  ["/root/.automated_script.sh"]="0:0:755"
+  ["/usr/local/bin/choose-mirror"]="0:0:755"
+  ["/usr/local/bin/Installation_guide"]="0:0:755"
+  ["/usr/local/bin/livecd-sound"]="0:0:755"
+)
+```
+
+</CodeBlock>
+
+### Key-by-key
+
+| Variable | Purpose | Notes |
+| --- | --- | --- |
+| `iso_name` | Base name of the output file | Editions use names like `ParchLinux`, `Parchlinux Gnome`, `Parchlinux-Plasma`. The final file is `$iso_name-$iso_version-x86_64.iso`. |
+| `iso_label` | ISO 9660 volume label | The Parch profiles include year and month (`PARCHLINUX_202610`). Keep it under 32 characters; the initramfs finds the medium by this label, and it is substituted into boot configs as `%ARCHISO_LABEL%`. |
+| `iso_publisher` | Free-form publisher string | Shows up in disk properties. |
+| `iso_application` | Description of the image | Shown by some boot tools. |
+| `iso_version` | Version string in the filename | The profiles use `$(date +%Y.%m.%d)`. |
+| `install_dir` | Directory holding the live data inside the ISO | Maximum 8 characters, lowercase letters and digits only. Parch uses `arch`; it is substituted into boot configs as `%INSTALL_DIR%` and is the directory containing `x86_64/airootfs.sfs`. |
+| `buildmodes` | What to produce | Parch sets `('iso')` only. Upstream also supports `bootstrap` and netboot artifacts. |
+| `bootmodes` | Boot paths to configure | The four Parch values cover BIOS MBR/El Torito via Syslinux and UEFI ESP/El Torito via systemd-boot. |
+| `arch` | Target architecture | `x86_64`, the only architecture Parch builds. |
+| `pacman_conf` | Path (relative to `iso/`) of the build pacman config | Always `pacman.conf`. |
+| `airootfs_image_type` | Root filesystem image format | `squashfs` for compatibility (upstream also supports `erofs`). |
+| `airootfs_image_tool_options` | Arguments passed to mksquashfs | Parch uses xz with the x86 BCJ filter and 1 MiB blocks/dictionary. |
+| `file_permissions` | Associative array of post-build permission fixes | See next section. |
+
+### `file_permissions`
+
+The array maps an absolute path inside the built airootfs to `ownerUID:ownerGID:mode`. mkarchiso applies these settings after all copying and package installation, so they are the final word on those files' metadata, regardless of what your git checkout or your host umask did to them.
+
+Why it exists: the live environment ships scripts in `/usr/local/bin` (for example `choose-mirror` and `Installation_guide`) that must be executable, and security-sensitive files like `/etc/shadow` must be locked down, even though neither property can be guaranteed by a git clone alone.
+
+Rules of thumb:
+
+- Every executable script you add under `airootfs/usr/local/bin/` **must** get a matching `["/usr/local/bin/your-script"]="0:0:755"` entry, or it will land in the ISO non-executable.
+- Modes are written as octal strings, use four digits for restrictive modes (`0400`, not `400`) so the value cannot be misread.
+- Only list what needs fixing; there is no globbing, each entry is one path.
+
+<Callout kind="tip" title="A missing 755 shows up as a boot failure, not a build failure">
+  The build will happily package a non-executable script. You only notice at runtime, for example, the installer guide refusing to launch. When you add a script to the profile, add its `file_permissions` entry in the same commit.
+</Callout>
+
+## Expected results
+
+- `grep '=' iso/profiledef.sh` shows all keys above; nothing references removed repositories.
+- `bash -n iso/profiledef.sh` (syntax check) exits cleanly, mkarchiso sources the file, so bash syntax errors abort the build.
+- Changing `iso_name` or `iso_version` changes the filename in `out/` on the next build; changing `iso_label` changes the label the initramfs searches for.
+
+## Troubleshooting
+
+- **`profiledef.sh: line N: unexpected token`**, a bash syntax problem (often a broken array). Validate with `bash -n iso/profiledef.sh`.
+- **Boot fails with "root device not found" / label errors**, `iso_label` was changed after the bootloader configs were last regenerated, or the label exceeds 32 characters. Rebuild so `%ARCHISO_LABEL%` is re-substituted, and shorten the label.
+- **`install_dir` too long**, mkarchiso rejects values longer than 8 characters or containing invalid characters. Stick to `arch`.
+- **Script not executable in the live system**, add the `file_permissions` entry.
+
+## Related pages
+
+- [Build your first ISO](/iso/build-first-iso/), put this profile to work.
+- [Package lists](/iso/packages-x86_64/), the manifest behind phase 4 of the build.
+- [Bootloader configuration](/iso/bootloader-config/), the configs the bootmodes generate.

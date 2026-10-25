@@ -1,0 +1,54 @@
+---
+title: "Build isolation"
+description: "Clean chroots, container builds, and secrets handling."
+order: 2
+---
+
+# Build isolation
+
+Builds happen in isolation for two reasons: correctness (a build that
+depends on your machine's state is not reproducible) and safety (build
+scripts execute arbitrary code).
+
+## Clean chroot for packages
+
+```bash
+$ sudo pacman -S --needed devtools
+$ pkgctl build                     # builds in a clean, disposable chroot
+$ sudo pkgctl build --clean        # recreate the chroot from scratch
+```
+
+The chroot contains only `base-devel` plus the PKGBUILD's declared
+`depends` and `makedepends`. Anything that "works on my machine" but not in
+the chroot is a dependency declaration bug, and the chroot found it before
+users did.
+
+## Container builds for ISOs
+
+ISO CI runs `mkarchiso` inside an `archlinux:latest` container with
+`--privileged` (it needs loop devices and mounts). The same rules apply
+locally: build ISOs from a clean checkout, with the profile's declared
+dependencies only, and never from a directory with uncommitted changes you
+cannot describe.
+
+## Secrets handling
+
+<Checklist>
+  - Secrets (SSH keys for mirror upload, tokens) live in GitHub Actions
+    secrets or your local keychain, never in repositories.
+  - CI logs mask secrets automatically; do not echo them into logs anyway.
+  - GPG keys used for signing (when signing work lands) live on the
+    maintainer's machine or an HSM, with revocation plans documented.
+  - Build scripts never accept secrets through environment variables that
+    get printed (`set -x` leaks values).
+  - The test-channel upload path uses dedicated credentials, not personal
+    ones.
+</Checklist>
+
+## What isolation does not cover
+
+A clean chroot trusts the PKGBUILD: if `build()` contains malicious
+commands, isolation only confines the blast radius. That is why PKGBUILD
+review ([submission](/packaging/submission/)) reads the functions line by
+line, and why builds never run outside a chroot on maintainer machines for
+unreviewed packages.

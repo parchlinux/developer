@@ -1,0 +1,90 @@
+---
+title: "Common problems"
+description: "The errors everyone hits first, with fixes."
+order: 7
+source: "ch. 19, 65"
+---
+
+# Common problems
+
+The failures below account for most first-week frustration. For deeper
+troubleshooting see [ISO troubleshooting](/iso/testing-iso/) and
+[Packaging validation](/packaging/testing-validation/).
+
+## "target not found" when installing a Parch package
+
+```text
+error: target not found: parch-welcome
+```
+
+The world repository is missing or not synced. Check `/etc/pacman.conf` for
+the `[world]` section ([setup guide](/start/workstation-setup/)) and run
+`sudo pacman -Syu`. Remember the section must sit **above** `[core]`.
+
+## Partial upgrade breakage
+
+```text
+error: failed to prepare transaction (could not satisfy dependencies)
+```
+
+Caused by `pacman -Sy <pkg>` (refreshing the database without upgrading).
+Fix: run `sudo pacman -Syu` fully. Never use `-Sy` alone; the handbook used
+to show it and it is wrong.
+
+## makepkg: "One or more PGP signatures could not be verified"
+
+The upstream release is signed but the key is not in your keyring. Either
+import the key (`gpg --recv-keys <KEYID>` and add it to `validpgpkeys`) or,
+only when you have verified the source another way, build once with
+`makepkg --skippgpcheck` and then fix the PKGBUILD properly. Do not ship
+`--skippgpcheck` guidance in a PKGBUILD.
+
+## makepkg: "One or more files did not pass a validity check!"
+
+Checksum mismatch: the `sha256sums` no longer match the source (upstream
+re-released, or you edited the source array). Re-run `updpkgsums`, then
+**diff what changed** upstream before trusting the new checksums.
+
+## namcap complains about dependencies
+
+Common first-timer cases:
+
+- A `depends` entry that every Arch system already has (`bash`, `glibc`):
+  remove it unless the package genuinely needs a specific minimum version.
+- Missing `makedepends` for build-time-only tools (`meson`, `cmake`, `git`).
+- Library packages that should pull their headers through a split package
+  instead.
+
+## ISO build fails with "You are not in root"
+
+```text
+### You are not in root
+```
+
+Profile `build.sh` scripts require root: `sudo ./build.sh`. They install
+packages into the build environment and cannot run as a normal user.
+
+## ISO build runs out of space
+
+mkarchiso needs room for the bootstrap root, the squashfs, and the ISO.
+Keep 30 GB free on the build filesystem, or point `TMPDIR`/the work
+directory at a larger volume. See
+[Build your first ISO](/iso/build-first-iso/).
+
+## QEMU boots to a black screen
+
+You likely used the wrong firmware for the image, or no display device.
+Test both firmwares explicitly (commands in [Testing an ISO](/iso/testing-iso/))
+and add `-display gtk` if you are on a headless script.
+
+## Persian text renders as boxes
+
+A missing Persian font, not a locale problem. Install `parch-persian-fonts`
+from world (or `noto-fonts` as a stopgap) and confirm the app uses a font
+stack that includes Estedad. See [Typography](/hig/typography/).
+
+## Still stuck?
+
+Search the [forum](https://forum.parchlinux.com) and the
+[wiki](https://wiki.parchlinux.com); if your problem is new, post it. Build
+logs beat descriptions: include the real output.

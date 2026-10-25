@@ -1,0 +1,299 @@
+---
+title: "Rust apps"
+description: "Build a GTK4 and libadwaita application in Rust with Cargo, then package it in a PKGBUILD with locked cargo dependencies, the parch-welcome stack."
+order: 4
+source: "ch. 53, 56"
+---
+
+# Rust apps
+
+Rust is the dominant first-party language on Parch: parch-welcome (the
+first-run assistant, Rust + libadwaita with a relm4-style structure), Pastor
+(the Parch Store), gamehub, mirrorman, and pordle are all Rust. This
+tutorial builds **Parch Greet**, a small libadwaita window with
+persistence, then packages it the way Rust packages on Arch are meant to be
+packaged: locked dependencies, no network surprises at build time.
+
+<Callout kind="tip" title="Why this stack">
+  gtk4-rs gives you memory safety with native GTK4 bindings, and the
+  resulting binary only needs the shared GTK libraries at runtime. For a
+  more ElM-style architecture on top of the same crates, look at the Relm4
+  crate, the pattern parch-welcome follows.
+</Callout>
+
+## Prerequisites
+
+- A Parch or Arch-based system (x86_64), any edition.
+- Working directory: `~/devel`, user privileges except where `sudo` is shown.
+
+```bash
+$ sudo pacman -S --needed rust gtk4 libadwaita
+$ cargo --version && rustc --version
+```
+
+## 1. Create the project
+
+```bash
+$ cargo new parch-greet
+$ cd parch-greet
+$ mkdir data
+```
+
+Layout after this tutorial:
+
+```text
+parch-greet/
+├── Cargo.toml
+├── Cargo.lock          # generated, commit it
+├── src/
+│   └── main.rs
+└── data/
+    └── parch-greet.desktop
+```
+
+`Cargo.toml`:
+
+```toml
+[package]
+name = "parch-greet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+adw = { package = "libadwaita", version = "0.7", features = ["v1_4"] }
+gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+
+[profile.release]
+lto = true
+strip = true
+```
+
+The `gtk4-rs` and `libadwaita` crates release in lockstep, so pick the pair
+that matches on crates.io. The `v1_4` feature unlocks `Adw.ToolbarView` and
+friends, and the `[profile.release]` block buys link-time optimization and a
+stripped binary for distribution.
+
+## 2. Write the application
+
+`src/main.rs`:
+
+```rust
+use std::fs;
+use std::path::PathBuf;
+
+use adw::prelude::*;
+use adw::{Application, ApplicationWindow, HeaderBar, Toast, ToastOverlay, ToolbarView};
+use gtk::glib;
+use gtk::{Button, Entry, Label, Orientation};
+
+const APP_ID: &str = "ir.parchlinux.Greet";
+const STATE_FILE: &str = "parch-greet/last-greeting.txt";
+
+fn state_path() -> PathBuf {
+    glib::user_config_dir().join(STATE_FILE)
+}
+
+fn read_saved_greeting() -> Option<String> {
+    fs::read_to_string(state_path())
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn save_greeting(name: &str) -> std::io::Result<()> {
+    let path = state_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, name)
+}
+
+fn main() -> glib::ExitCode {
+    let app = Application::builder().application_id(APP_ID).build();
+    app.connect_activate(build_ui);
+    app.run()
+}
+
+fn build_ui(app: &Application) {
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .title("Parch Greet")
+        .default_width(480)
+        .default_height(220)
+        .build();
+
+    let entry = Entry::new();
+    entry.set_placeholder_text(Some("Your name"));
+
+    let label = Label::new(None);
+    label.add_css_class("title-2");
+
+    let button = Button::with_label("Greet");
+
+    let toast_overlay = ToastOverlay::new();
+    let content = gtk::Box::new(Orientation::Vertical, 12);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+    content.append(&entry);
+    content.append(&button);
+    content.append(&label);
+    toast_overlay.set_child(Some(&content));
+
+    let header = HeaderBar::new();
+    let toolbar = ToolbarView::new();
+    toolbar.set_top_bar(&header);
+    toolbar.set_content(Some(&toast_overlay));
+    window.set_content(Some(&toolbar));
+
+    match read_saved_greeting() {
+        Some(name) => {
+            label.set_text(&format!("Hello again, {name}"));
+            entry.set_text(&name);
+        }
+        None => label.set_text("Hello, Parch"),
+    }
+
+    button.connect_clicked(glib::clone!(@weak entry, @weak label, @weak toast_overlay => move |_| {
+        let name = entry.text().trim().to_string();
+        if name.is_empty() {
+            toast_overlay.add_toast(&Toast::builder().title("Nothing to greet").timeout(3).build());
+            return;
+        }
+        if save_greeting(&name).is_ok() {
+            label.set_text(&format!("Hello, {name}"));
+            toast_overlay.add_toast(&Toast::builder().title("Greeting saved").timeout(3).build());
+        } else {
+            toast_overlay.add_toast(&Toast::builder().title("Could not save").timeout(3).build());
+        }
+    }));
+
+    window.present();
+}
+```
+
+Idioms worth copying into any Rust app: the application id is the same
+reverse-DNS string used in the desktop file and the Wayland app id (see
+[desktop integration](/app-dev/desktop-integration/)), state goes under
+`glib::user_config_dir()` so it follows XDG rules, and `glib::clone!`
+borrows widgets weakly so closures never keep destroyed widgets alive.
+
+## 3. Build and run
+
+From the project root, user privileges:
+
+```bash
+$ cargo run
+```
+
+Expected result: a libadwaita window with a header bar. Typing a name and
+pressing Greet shows a toast, saves the name, and the label greets you. The
+name survives a restart because it is read from
+`~/.config/parch-greet/last-greeting.txt`.
+
+For the binary you will ship:
+
+```bash
+$ cargo build --release
+$ ./target/release/parch-greet
+```
+
+## 4. Desktop entry
+
+`data/parch-greet.desktop`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Parch Greet
+Name[fa]=درود پارچ
+Comment=Say hello to Parch
+Comment[fa]=به پارچ سلام کن
+Exec=parch-greet
+Icon=parch-greet
+Terminal=false
+Categories=Utility;
+Keywords=greet;درود;
+```
+
+Validate with `desktop-file-validate data/parch-greet.desktop`. Icon naming
+and MIME rules are on [HIG desktop files](/hig/desktop-files/).
+
+## 5. Package it
+
+Rust packages build from a source tarball that includes `Cargo.lock`, fetch
+the locked dependency set in `prepare()`, and compile with `--frozen` so the
+build can never resolve a version you did not test.
+
+`PKGBUILD`:
+
+```bash
+# Maintainer: Your Name <you@example.com>
+pkgname=parch-greet
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A small greeting app for Parch"
+arch=('x86_64')
+url="https://github.com/parchlinux/parch-greet"
+license=('GPL-3.0-or-later')
+depends=('glibc' 'gtk4' 'libadwaita')
+makedepends=('cargo')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/parchlinux/parch-greet/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')  # fill with updpkgsums before any real submission
+
+prepare() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+    cd "$pkgname-$pkgver"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release --all-features
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 target/release/parch-greet -t "$pkgdir/usr/bin/"
+    install -Dm644 data/parch-greet.desktop -t "$pkgdir/usr/share/applications/"
+}
+```
+
+<Callout kind="note" title="Vendoring instead of fetching">
+  Some maintainers prefer a fully offline build: `cargo vendor vendor/`
+  creates a `vendor/` directory, and a `.cargo/config.toml` with a
+  `vendored-sources` directory source makes cargo use it. Both approaches
+  meet the same rule: the build must use exactly the versions in
+  `Cargo.lock`, never a fresh resolve.
+</Callout>
+
+The `SKIP` checksum above exists only because the tarball URL is
+hypothetical; real submissions run `updpkgsums` and pass
+[packaging review](/packaging/submission/).
+
+## 6. Validate the package
+
+```bash
+$ makepkg -f
+$ namcap parch-greet-0.1.0-1-x86_64.pkg.tar.zst
+$ sudo pacman -U parch-greet-0.1.0-1-x86_64.pkg.tar.zst
+$ pacman -Ql parch-greet
+```
+
+`namcap` should report no missing-dependency warnings: the runtime
+`depends` list carries only `glibc`, `gtk4`, and `libadwaita`, because cargo
+crates are compiled in, not shipped.
+
+## Related pages
+
+- [GTK apps in Python](/app-dev/gtk-apps/): the same idioms in the PKM stack.
+- [Choosing a toolkit](/app-dev/toolkit-guide/): when Rust and when GTK/Qt.
+- [Example packages](/packaging/example-packages/): complete PKGBUILDs to
+  compare against.
+- [Debugging and profiling](/app-dev/debugging-profiling/): `RUST_LOG`,
+  backtraces, and Wayland debugging.
+- [Security practices](/app-dev/security-practices/): dependency hygiene,
+  which matters doubly in the cargo ecosystem.

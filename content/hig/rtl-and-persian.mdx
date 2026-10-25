@@ -1,0 +1,47 @@
+---
+title: "RTL & Persian"
+description: "Right-to-left layout rules and Persian-language specifics for Parch applications."
+order: 9
+---
+
+# RTL & Persian
+
+Parch is a Persian-first distribution: fa_IR is the default locale target of
+its installer configurations, and RTL is a supported first-class layout, not
+a translation-time accident.
+
+## RTL layout rules
+
+<Checklist>
+  - Use **logical properties** in CSS (`margin-inline-start`, not
+    `margin-left`); in GTK/Qt, use start/end geometry, never left/right.
+  - Directional UI glyphs (back/forward, send, indent) mirror in RTL.
+    Non-directional glyphs (settings, search, download) do not.
+  - Navigation order flips: sidebars move to the right side; carousel and
+    wizard step order reverses.
+  - Numbers, versions, package names, and code remain LTR, isolated with
+    Unicode bidi isolation so they don't scramble inside RTL sentences.
+  - Mixed-direction text is tested with realistic strings, e.g.
+    «بسته‌ی `plasma-desktop` به‌روزرسانی شد», not just pure Persian.
+</Checklist>
+
+## Persian specifics
+
+- **Font:** Estedad ships with Parch; applications must not hardcode Vazir or
+  Tahoma. Line-height runs ~1.05× taller than Latin at the same size.
+- **Numerals:** Persian UI strings prefer Persian numerals (۱۲۳۴); versions
+  and package names stay Latin. Locale-aware formatting handles this, don't
+  hand-convert.
+- **Keyboards:** Persian keyboard layouts are part of the default live
+  environment; shortcut lists must not assume a Latin-only layout.
+- **Calendar and dates:** the Gregorian calendar is default; where a Persian
+  calendar option exists, it is a setting, not a surprise.
+- **Sizing:** Persian labels can run 20–30% longer or shorter than English ,
+  design for reflow, not for fixed label widths.
+
+## Testing RTL
+
+1. Switch the app's locale to `fa_IR` and relaunch.
+2. Walk every screen: alignment, mirroring, truncation, icon direction.
+3. Inject mixed-direction content (package names, URLs, commands).
+4. Check dialogs, toasts, and popovers anchor to the correct edge.

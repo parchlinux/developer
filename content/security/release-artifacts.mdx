@@ -1,0 +1,67 @@
+---
+title: "Release artifacts"
+description: "Checksums, verification, and the signing work that turns trust into proof."
+order: 4
+status: proposal
+---
+
+# Release artifacts
+
+This page describes how release artifacts are protected today, and the
+signing design proposed to replace that trust with proof.
+
+## Today: checksums and transport trust
+
+Stable ISO releases carry `md5sums.txt` (produced by the build pipeline
+alongside the 7z multi-volume archives). Users verify with:
+
+```bash
+$ md5sum -c md5sums.txt        # or sha256sum against the published values
+```
+
+What this proves: the download matches what the build produced and
+published (accidental corruption is caught). What it does not prove: that
+the published artifact came from Parch's build infrastructure. That gap is
+covered today by GitHub's TLS transport and account security, stated
+plainly in [repository infrastructure](/distribution/repository-infrastructure/).
+
+## Proposed: signing
+
+The proposed design, in three pieces:
+
+1. **Repository signing.** A Parch GPG master key maintained by the core
+   team; `repo-add --sign` produces signed sync databases; packages gain
+   `SigLevel = Required` once all packages are signed. Users import the
+   Parch key via a `parchlinux-keyring` package (the repo already exists
+   for exactly this purpose).
+2. **ISO signing.** Builds produce detached signatures (`*.iso.sig`)
+   published next to the artifacts; the release page documents
+   `gpg --verify` steps; the build pipeline stores the signing key only in
+   the CI secret store, with revocation procedure documented.
+3. **Key management.** Key ceremonies are overkill at this scale; the
+   requirements that matter are: offline master key, per-purpose subkeys,
+   a published revocation certificate, and a documented rotation process.
+
+## What changes for users (once landed)
+
+```bash
+$ sudo pacman-key --recv-keys <PARCH-KEY-ID>
+$ sudo pacman-key --lsign-key <PARCH-KEY-ID>
+$ # pacman.conf: SigLevel = Required for [world]
+$ gpg --verify parchlinux-plasma-2026.11-x86_64.iso.sig parchlinux-plasma-2026.11-x86_64.iso
+```
+
+## Reproducibility
+
+Reproducible builds (same inputs produce byte-identical ISOs) are the
+complement to signing: independent builders could verify releases. The
+building blocks exist (`SOURCE_DATE_EPOCH`, fixed mirror snapshots at build
+time); full ISO reproducibility remains aspirational and is tracked with
+the signing work. Package-level reproducibility practices are documented
+in [naming and versioning](/packaging/naming-versioning/).
+
+<Callout kind="important" title="Status">
+  Everything after "Today" on this page is a **proposal**. Nothing here
+  should be quoted as an existing capability until the keyring package and
+  signed repositories actually land.
+</Callout>

@@ -1,0 +1,40 @@
+---
+title: "Localization & accessibility integration"
+description: "Shipping translated, accessible applications on Parch."
+order: 27
+---
+
+# Localization & accessibility integration
+
+These two integration concerns share one rule: **they are build-time
+requirements, not post-release tasks.** The detailed workflows live in the
+[Localization & Accessibility](/localization/) section; this page is the HIG
+contract.
+
+## Localization contract
+
+<Checklist>
+  - All user-visible strings go through gettext (or the toolkit equivalent)
+    from the first commit, no string concatenation that breaks word order.
+  - Persian (`fa`) translations ship for first-party apps at release time;
+    English is the source, Persian is not an afterthought.
+  - RTL layout follows the locale automatically (see [RTL & Persian](/hig/rtl-and-persian/)).
+  - Translations are tested in the app, not in translation tools alone ,
+    reflow, truncation, and mixed-direction rendering only show at runtime.
+</Checklist>
+
+## Accessibility contract
+
+<Checklist>
+  - Accessibility tree (ATK/AT-SPI or QAccessible) exposes every control's
+    name, role, and value from day one, it cannot be bolted on.
+  - Full keyboard operation is a release blocker (see [Accessibility](/hig/accessibility/)).
+  - Both themes pass contrast checks on real content.
+  - The app respects system font scaling and reduced motion.
+</Checklist>
+
+## CI hook
+
+The portal's own checks treat these as build gates (see
+[Testing & QA](/testing/)): a translation-coverage check for required
+languages, and an accessibility smoke test over primary flows.

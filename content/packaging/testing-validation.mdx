@@ -1,0 +1,181 @@
+---
+title: "Testing and validation"
+description: "The pre-submission test plan: static checks, clean chroot builds, content audits, install/upgrade/remove cycles, collision and hook testing, metadata validation, and license compliance."
+order: 5
+source: "ch. 42, 51"
+---
+
+# Testing and validation
+
+A package is correct when it builds in isolation, installs cleanly, upgrades without surprises, and removes without leftovers. This page is the test plan; each step shows the command that proves it. Everything runs on an Arch-based host with the toolchain from [building packages](/packaging/building-packages/).
+
+## Static checks first
+
+Run these before any build, from the package directory, as an unprivileged user. They catch most review blockers in seconds.
+
+<CodeBlock title="Syntax, metadata, and policy lint">
+
+```bash
+$ bash -n PKGBUILD                              # shell syntax
+$ makepkg --printsrcinfo > .SRCINFO             # metadata must generate
+$ namcap PKGBUILD                               # policy lint
+```
+
+</CodeBlock>
+
+`namcap` reports `E:` lines (errors, must fix) and `W:` lines (warnings, fix or justify). Typical catches: missing license, runtime libraries listed in `makedepends` instead of `depends`, and missing checksums.
+
+## Build in a clean chroot
+
+Your system has dozens of packages a fresh install lacks. A build that works only on your machine fails for users and reviewers. `pkgctl build` runs the build in a minimal chroot containing only the declared dependencies:
+
+<CodeBlock title="Clean chroot build, twice, for reproducibility">
+
+```bash
+$ pkgctl build
+$ cp *.pkg.tar.zst /tmp/first.pkg.tar.zst
+$ pkgctl build --clean
+$ sha256sum *.pkg.tar.zst /tmp/first.pkg.tar.zst
+```
+
+</CodeBlock>
+
+Two builds of the same source should be byte-identical. A mismatch means timestamps or build paths leaked into the archive; set `SOURCE_DATE_EPOCH` from the last commit when your build scripts write dates:
+
+<CodeBlock title="Reproducible one-liner">
+
+```bash
+$ SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) pkgctl build
+```
+
+</CodeBlock>
+
+See the reproducible builds section of [naming and versioning](/packaging/naming-versioning/) for the rules behind this.
+
+## Audit the contents
+
+Read the file list before installing anything:
+
+<CodeBlock title="List the package contents">
+
+```bash
+$ pacman -Qpl parch-insight-2.1.0-1-any.pkg.tar.zst
+$ namcap parch-insight-2.1.0-1-any.pkg.tar.zst
+```
+
+</CodeBlock>
+
+Reject the build if you find:
+
+- Paths under `/usr/local` (always wrong for repository packages).
+- Files in `/etc` that are not in `backup=()`, upgrades would clobber user edits.
+- Bundled copies of libraries that `depends` already provides.
+- Build artifacts that leaked in: `.o` files, `.git` directories, `CMakeCache.txt`.
+- `__pycache__` directories or `.pyc` files you did not intend to ship.
+
+## Install, upgrade, remove
+
+Install the package, exercise the software, upgrade it, then remove it and prove nothing was left behind. Root is required for pacman:
+
+<CodeBlock title="Full lifecycle test (root required)">
+
+```bash
+# pacman -U parch-insight-2.1.0-1-any.pkg.tar.zst
+$ parch-insight                                  # launch it once, click through, close
+$ desktop-file-validate /usr/share/applications/parch-insight.desktop
+# pacman -Rns parch-insight
+$ pacman -Ql parch-insight                       # must print: error: package not found
+$ pacman -Qo /usr/lib/parch-insight 2>/dev/null  # must print: no package owns ...
+```
+
+</CodeBlock>
+
+For packages with `backup=()` entries or `.install` scripts, test the upgrade path too: bump `pkgrel`, rebuild, and run `pacman -U` over the installed version. Watch how pacman reports `.pacnew` files and check `pacman -Qkk` reports no altered files after install.
+
+## File collision checks
+
+A package that overwrites another package's files breaks both. Check the paths you install against the host and the repository file databases:
+
+<CodeBlock title="Find path owners">
+
+```bash
+$ pacman -Qo /usr/share/applications/parch-insight.desktop
+$ pkgfile -s usr/bin/parch-insight
+```
+
+</CodeBlock>
+
+`pacman -Qo` prints the owner of a path on the host, `pkgfile -s` searches the repo file databases (run `pkgfile -u` once to download them). Both should point only at your package. Collisions usually come from generic names like `usr/bin/update` or an icon called `logo.svg`; prefix such names with the project name.
+
+## Dependency sanity
+
+<CodeBlock title="Check what the binary really links">
+
+```bash
+$ ldd /usr/bin/parch-insight | grep "not found"   # must be empty
+$ pacman -Qi parch-insight | grep -E "Depends|Required By"
+```
+
+</CodeBlock>
+
+Every non-implicit library your binary links must appear in `depends`. Missing dependencies that happen to be installed on your machine are the classic "works for me" packaging bug; the clean chroot build plus this `ldd` review catches them.
+
+## Test install script hooks
+
+If the PKGBUILD sets `install=`, exercise the hooks deliberately instead of reading the code and hoping:
+
+<CodeBlock title="Verify hook side effects after install">
+
+```bash
+# pacman -U parch-syncagent-1.0.3-1-any.pkg.tar.zst
+$ getent passwd syncagent                        # sysusers created the user
+$ ls -ld /var/lib/syncagent                      # tmpfiles created the directory
+$ journalctl -b | grep -i syncagent              # no hook errors
+# pacman -Rns parch-syncagent
+```
+
+</CodeBlock>
+
+If a hook function fails, pacman prints its output mid-transaction and still finishes the install, so users inherit the failure. Test the failure paths too, for example removing the service package while its service is running, see the systemd example on [example packages](/packaging/example-packages/).
+
+## Validate desktop and AppStream metadata
+
+For GUI packages, validate the launcher and metadata that now live on your system. The validators come from the `appstream` and `desktop-file-utils` packages:
+
+<CodeBlock title="Validate desktop entry and AppStream file">
+
+```bash
+$ desktop-file-validate /usr/share/applications/parch-insight.desktop
+$ appstreamcli validate --pedantic /usr/share/metainfo/parch-insight.metainfo.xml
+```
+
+</CodeBlock>
+
+Both must exit clean. Frequent AppStream failures: a missing `metadata_license`, a `launchable` that does not match the desktop file id, or a release dated in the future.
+
+## License compliance
+
+- Use the SPDX identifier in `license=`, for example `('MIT')` or `('LGPL-2.1-or-later')`, and `custom:NAME` only when no SPDX identifier exists.
+- Install the upstream license text to `/usr/share/licenses/${pkgname}/`.
+- Confirm the license actually permits redistribution; a package without a clear license cannot be accepted.
+- Run `namcap` on the package file: it warns when the license array and the installed files disagree.
+
+## Pre-submission checklist
+
+<Checklist>
+  - `bash -n PKGBUILD`, `makepkg --printsrcinfo`, and `namcap` all run clean.
+  - Two consecutive `pkgctl build` runs produce byte-identical packages.
+  - File list contains no `/usr/local` paths, no bundled libraries, no build artifacts.
+  - Install, upgrade, and remove all succeed, and removal leaves no owned files behind.
+  - Every `.install` hook was observed to run, including its failure paths.
+  - `desktop-file-validate` and `appstreamcli validate --pedantic` pass for GUI packages.
+  - License is SPDX-named, permits redistribution, and the text is installed.
+</Checklist>
+
+A package that passes this list is ready for [submission](/packaging/submission/), where this evidence becomes the testing section of your email.
+
+## Related pages
+
+- [Building packages](/packaging/building-packages/): the build and chroot commands used here.
+- [Example packages](/packaging/example-packages/): the packages exercised above.
+- [Command reference](/reference/): quick syntax for every tool on this page.

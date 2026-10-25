@@ -1,0 +1,71 @@
+---
+title: "Localization for apps"
+description: "Wiring gettext, plural rules, and Persian support into an application."
+order: 7
+---
+
+# Localization for apps
+
+The systems overview lives in [Localization & Accessibility](/localization/);
+this page is the application-developer's version: the minimum wiring that
+makes an app translatable, and the Parch-specific expectations.
+
+## The minimum wiring (gettext)
+
+```python
+# Python: one-time setup in the app entry point
+import gettext
+import locale
+
+locale.setlocale(locale.LC_ALL, "")
+gettext.install("parch-hello", localedir="/usr/share/locale")
+```
+
+```rust
+// Rust (gettext-rs): initialize before building any UI
+let text_domain = gettextrs::TextDomain::new("parch-welcome")
+    .init()
+    .expect("could not initialize the gettext system");
+```
+
+From that point every user-visible string passes through `_("...")` (or
+your toolkit's equivalent). Strings introduced later without it are
+untranslatable and get flagged in review.
+
+## Plurals and contexts
+
+```python
+from gettext import ngettext, pgettext
+
+ngettext("%d update available", "%d updates available", n) % n
+pgettext("verb", "Open")   # translators see the context
+```
+
+## Persian expectations for first-party apps
+
+- The `fa` catalog ships **at release**, complete (see
+  [testing l10n](/localization/testing-l10n-a11y/)).
+- Font stack: `Saira, Estedad, sans-serif`, never a hardcoded Persian font.
+- RTL correctness comes from the toolkit when the locale is RTL; verify
+  with a `fa_IR` run, including dialogs, toasts, and mixed-direction
+  content (package names inside Persian sentences).
+
+## Desktop metadata
+
+The desktop entry carries `Name[fa]`, `Comment[fa]`, and Persian
+`Keywords` ([template](/hig/desktop-files/)). These are part of the
+translation surface even though they are not gettext.
+
+## Release checklist slice
+
+```text
+[ ] All strings extracted, .pot regenerated
+[ ] po/fa.po complete (msgfmt --statistics shows zero untranslated)
+[ ] fa_IR runtime walk-through: reflow, truncation, RTL
+[ ] Desktop entry has [fa] keys
+[ ] Plural cases tested (0, 1, 2, many)
+```
+
+For appstore-style listings (Pastor), package metadata summaries benefit
+from Persian descriptions too; see the packaging docs for where metadata
+lives.

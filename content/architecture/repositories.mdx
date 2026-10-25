@@ -1,0 +1,86 @@
+---
+title: "Repositories"
+description: "world and Void: how Parch packages are stored, served, and consumed."
+order: 2
+source: "ch. 32, 67"
+---
+
+# Repositories
+
+Parch ships its own packages from two pacman repositories, both served
+directly from GitHub. This is deliberate infrastructure-as-repo: the sync
+database and packages live in git, changes are reviewable as commits, and
+GitHub's CDN acts as the mirror network.
+
+## The two repositories
+
+| Repository | Role | URL |
+|---|---|---|
+| **world** | Stable Parch packages | `https://github.com/parchlinux/world/raw/refs/heads/main/x86_64/` |
+| **Void** | Testing packages ("world becomes unstable") | `https://github.com/parchlinux/Void/raw/refs/heads/main/x86_64/` |
+
+The old PPR and PCP repositories were consolidated into world and are gone;
+`git.parchlinux.com` is likewise dead. If you find documentation referencing
+them, it is outdated.
+
+## How they are configured
+
+In `/etc/pacman.conf`, world sits **above** the Arch repositories so Parch
+packages win name collisions:
+
+```ini
+[world]
+SigLevel = Never
+Server = https://github.com/parchlinux/world/raw/refs/heads/main/x86_64/
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+```
+
+Void is added the same way for testing, and should be **removed again**
+afterwards: testing packages graduate to world or get reverted.
+
+## What lives in world
+
+A representative slice of the sync database:
+
+```bash
+$ pacman -Sl world
+world calamares 3.4.3-8
+world archiso 99-1
+world appmanager 3.1.1-2
+world arad-fonts 2.1.0-1
+world parch-persian-fonts ...
+```
+
+Categories: Parch first-party apps (Pastor, Welcome, Update, PKM, …),
+Parch-flavored system components (Calamares, archiso with Parch patches),
+Persian fonts and tooling, and desktop integration packages (parch-sddm,
+parch-grub-theme, gnome-parch).
+
+## The promotion pipeline
+
+```text
+PKGBUILD (pkgbuilds repo)
+   │  makepkg + namcap + local test
+   ▼
+Void repository          ← testing: install from here, break things
+   │  validated by maintainers and testers
+   ▼
+world repository         ← stable: default for all users
+```
+
+Package submission into this pipeline is documented in
+[Packaging: Submission](/packaging/submission/).
+
+## Signing status
+
+`SigLevel = Never` is the honest current state: world packages are not
+GPG-signed, and the ISO's pacman.conf sets `SigLevel = Never` globally for
+the live environment. This is a known infrastructure gap, documented in
+[Security](/security/) with the proposed direction. If you are building on
+Parch, know that repository trust currently rests on GitHub's transport and
+the review process, not package signatures.

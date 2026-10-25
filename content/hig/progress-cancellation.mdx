@@ -1,0 +1,34 @@
+---
+title: "Progress & cancellation"
+description: "Communicating waits and keeping the user in control of long operations."
+order: 21
+---
+
+# Progress & cancellation
+
+## Communicating waits
+
+| Duration | Pattern |
+|---|---|
+| < 400ms | Nothing, instant feedback is the feedback |
+| 0.4–2s | Inline spinner or button loading state |
+| 2–10s | Determinate bar when possible, labeled |
+| > 10s | Progress + label + cancel; work continues if the view changes |
+
+## Rules
+
+<Checklist>
+  - Labels describe the operation and its current step (“Downloading
+    packages”, then “Installing pastor”), not generic “Working…”.
+  - Package operations report the real transaction from the package manager ,
+    never a simulated progress bar.
+  - Cancellation stops *scheduling* further work and cleanly rolls back the
+    current step; it must leave the system consistent (a cancelled install
+    installs nothing half-way).
+  - After cancel, say what state things are in (“Nothing was installed”).
+  - Background operations surface in a persistent place (systray applet, like
+    parch-update) so users can return to them.
+</Checklist>
+
+Demo: [Progress in the design system](/design/feedback/); transaction view:
+the [Update Manager mock](/mockups/updater/).

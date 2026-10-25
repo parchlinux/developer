@@ -1,0 +1,74 @@
+---
+title: "Arch foundations"
+description: "Pacman, ALPM, rolling release, and the build system Parch inherits."
+order: 1
+---
+
+# Arch foundations
+
+Parch does not fork Arch's toolchain: it uses pacman, libalpm, makepkg, and
+the Arch package format exactly as upstream defines them. Learning these
+four things covers 80% of distribution internals.
+
+## pacman and libalpm
+
+`pacman` is the package manager; `libalpm` is the C library underneath it
+(GUI stores like Pastor talk to it through helpers). The mental model:
+
+- **The local database** lives in `/var/lib/pacman/local/`: what is
+  installed, which files each package owns, checksums of each file.
+- **Sync databases** are downloaded per-repo into
+  `/var/lib/pacman/sync/`: what is available (`pacman -Sl world` lists the
+  world sync db).
+- **Transactions are atomic.** Install/upgrade/remove either completes or
+  leaves the system as it was. Hooks in `/usr/share/libalpm/hooks/` run
+  around transactions (font caches, initramfs regeneration, icon caches).
+
+Key commands every Parch developer uses daily:
+
+```bash
+$ pacman -Qi <pkg>        # info about an installed package
+$ pacman -Ql <pkg>        # files it owns
+$ pacman -Qo /path/file   # which package owns a file
+$ pacman -Fl <pkg>        # files in the sync db (with -Fy first)
+$ pacman -Si <pkg>        # info from sync databases
+$ pacman -Ss <term>       # search
+```
+
+Full behavior is documented upstream: `man pacman`,
+[pacman(8)](https://man.archlinux.org/man/pacman.8).
+
+## The rolling release
+
+There are no Parch "versions" to upgrade across. Two consequences matter to
+developers:
+
+1. **Integration testing happens continuously**, not before a release. A
+   broken soname bump in upstream hits users within days; Parch packages
+   that link libraries must rebuild promptly.
+2. **The ISO is the snapshot.** An ISO built today embeds today's packages.
+   Two ISOs from the same profile a month apart are different distributions
+   in practice; that is expected, and CI builds on release tags capture the
+   state (see [Release automation](/iso/release-automation/)).
+
+## makepkg and PKGBUILDs
+
+Packages are described by a `PKGBUILD`: a bash script with metadata and four
+optional lifecycle functions. `makepkg` turns it into an installable
+`.pkg.tar.zst`. This mechanism is unchanged from Arch; Parch adds
+conventions on top (naming, submission, the world repository). Learn it once
+in the [PKGBUILD reference](/packaging/pkgbuild-reference/).
+
+## What Parch does NOT change
+
+<Checklist>
+  - Package format, signatures, and database layout.
+  - `/usr` filesystem hierarchy and pacman's file-tracking semantics.
+  - systemd units, initramfs generation (mkinitcpio), and kernel packaging
+    conventions.
+  - Arch repositories themselves: `core`/`extra` packages are consumed as-is.
+</Checklist>
+
+When Parch needs different behavior, it ships a **new package** (like the
+Parch-flavored Calamares in world) rather than patching an Arch package in
+place, unless there is no alternative.

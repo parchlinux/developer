@@ -1,0 +1,40 @@
+---
+title: "Feedback"
+description: "Progress, loading, empty states, and error messages."
+order: 7
+---
+
+
+# Feedback
+
+Every wait, absence, and failure gets a designed state, never a blank area.
+
+## Progress
+
+<Checklist>
+  - Determinate bar when the fraction is known; indeterminate sweep otherwise.
+  - Label the operation (“Downloading packages”), not the mechanism.
+  - Long operations (>10s) must offer cancellation.
+</Checklist>
+
+<Demo>
+  <DemoStage name="progress-demo" />
+</Demo>
+
+## Empty states
+
+An empty state explains, reassures, and offers the next step.
+
+<Demo>
+  <DemoStage name="empty-states" />
+</Demo>
+
+## Rules
+
+<Checklist>
+  - Empty states are one icon, one sentence, one action, no essays.
+  - Offline is a state, not an error: installed functionality keeps working.
+  - Errors land in the context where they happened (inline for fields, dialog
+    for blockers, toast for background work).
+  - Every error message names a recovery: retry, check connection, or open logs.
+</Checklist>

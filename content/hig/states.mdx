@@ -1,0 +1,32 @@
+---
+title: "States: empty, loading & error"
+description: "Every wait, absence, and failure gets a designed state."
+order: 15
+---
+
+# States: empty, loading & error
+
+Views have five states, and shipping an app means designing all of them:
+
+| State | Purpose | Pattern |
+|---|---|---|
+| Loading | Content is arriving | Skeleton or labeled spinner; never a blank pane |
+| Empty | No content yet | Icon + one sentence + one action |
+| Success | Operation completed | Toast or inline confirmation |
+| Error | Operation failed | Inline near cause, dialog if blocking, toast if background |
+| Offline | No connectivity | Banner + preserved functionality |
+
+## Rules
+
+<Checklist>
+  - Empty states teach: the action should be the most likely next step
+    (“Install your first package”).
+  - Loading skeletons match final layout to avoid jumps; anything over 10s
+    shows progress and cancellation.
+  - Errors name a recovery: retry, check connection, open logs.
+  - Error text survives translation, keep the recovery instruction in the
+    same string as the error (translators reorder as a unit).
+</Checklist>
+
+Live demos: [Feedback in the design system](/design/feedback/) and the
+[network mock's offline state](/mockups/network/).

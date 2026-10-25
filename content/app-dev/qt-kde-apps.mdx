@@ -1,0 +1,417 @@
+---
+title: "Qt and KDE apps"
+description: "Build a native Qt6 and KDE Frameworks 6 application in C++ with CMake and ECM, from an empty directory to an installed Plasma app."
+order: 3
+source: "ch. 55"
+---
+
+# Qt and KDE apps
+
+This tutorial builds **Parch Sysinfo**, a small native Plasma application in
+C++ with Qt6 and KDE Frameworks 6: KAboutData for metadata, KConfig for
+persistence, ki18n for translations, and a CMake build driven by extra-cmake-modules
+(ECM). It is the same stack as plasma-setup, the real Parch installer setup
+tool.
+
+<Callout kind="important" title="Qt6 and KF6, not Qt5 and KF5">
+  Older handbook chapters show Qt5/KF5 era names. Both generations are still
+  packaged for legacy software, but every new application targets **Qt6 and
+  KF6**. In package terms that means `qt6-base`, `kcoreaddons`, `ki18n`,
+  `kconfig`, `kxmlgui`, and `extra-cmake-modules` for the build helper ECM.
+</Callout>
+
+## Prerequisites
+
+- A Parch or Arch-based system, Plasma edition preferred.
+- Working directory: `~/devel`, user privileges except where `sudo` is shown.
+
+```bash
+$ sudo pacman -S --needed cmake extra-cmake-modules qt6-base qt6-tools \
+    kcoreaddons ki18n kconfig kxmlgui
+```
+
+## 1. Create the project skeleton
+
+```bash
+$ mkdir -p parch-sysinfo/src parch-sysinfo/data parch-sysinfo/po
+$ cd parch-sysinfo
+```
+
+```text
+parch-sysinfo/
+├── CMakeLists.txt
+├── src/
+│   ├── main.cpp
+│   ├── mainwindow.h
+│   └── mainwindow.cpp
+├── data/
+│   ├── org.parch.sysinfo.desktop
+│   ├── org.parch.sysinfo.metainfo.xml
+│   └── org.parch.sysinfo.svg
+└── po/
+    └── fa/
+        └── parch-sysinfo.po
+```
+
+## 2. The application entry point
+
+`src/main.cpp`:
+
+```cpp
+#include <QApplication>
+#include <QCommandLineParser>
+#include <QIcon>
+
+#include <KAboutData>
+#include <KLocalizedString>
+
+#include "mainwindow.h"
+
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+
+    KAboutData aboutData(
+        QStringLiteral("parch-sysinfo"),
+        i18n("Parch Sysinfo"),
+        QStringLiteral("0.1.0"),
+        i18n("Show basic system information"),
+        KAboutLicense::GPL_V3,
+        i18n("(c) 2026 Parch contributors"),
+        QString(),
+        QStringLiteral("https://parchlinux.com"));
+    aboutData.setOrganizationDomain(QStringLiteral("parchlinux.com"));
+    aboutData.addAuthor(i18n("Your Name"),
+                        i18n("Maintainer"),
+                        QStringLiteral("you@example.com"));
+    KAboutData::setApplicationData(aboutData);
+
+    app.setWindowIcon(QIcon::fromTheme(QStringLiteral("utilities-system-monitor")));
+    app.setDesktopFileName(QStringLiteral("org.parch.sysinfo"));
+
+    QCommandLineParser parser;
+    aboutData.setupCommandLine(&parser);
+    parser.process(app);
+    aboutData.processCommandLine(&parser);
+
+    MainWindow window;
+    window.show();
+
+    return app.exec();
+}
+```
+
+Three integration points happen here: `setApplicationData` makes the app id
+and version available to ki18n, crash handlers, and `--version`; `setDesktopFileName`
+ties the window to the desktop entry (and the Wayland app id, see
+[desktop integration](/app-dev/desktop-integration/)); `QCommandLineParser`
+plus `aboutData.setupCommandLine` gives you standard `--help` and `--version`
+output for free.
+
+## 3. The main window with KConfig
+
+`src/mainwindow.h`:
+
+```cpp
+#pragma once
+
+#include <QLabel>
+#include <QLineEdit>
+#include <QMainWindow>
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit MainWindow(QWidget *parent = nullptr);
+
+private slots:
+    void saveGreeting();
+
+private:
+    QLineEdit *m_nameEdit = nullptr;
+    QLabel *m_greeting = nullptr;
+};
+```
+
+`src/mainwindow.cpp`:
+
+```cpp
+#include "mainwindow.h"
+
+#include <QApplication>
+#include <QCoreApplication>
+#include <QMenuBar>
+#include <QStatusBar>
+#include <QVBoxLayout>
+#include <QWidget>
+
+#include <KConfig>
+#include <KConfigGroup>
+#include <KLocalizedString>
+#include <KStandardAction>
+#include <QPushButton>
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    setWindowTitle(i18n("Parch Sysinfo"));
+
+    auto *central = new QWidget(this);
+    auto *layout = new QVBoxLayout(central);
+    layout->setContentsMargins(24, 24, 24, 24);
+    layout->setSpacing(12);
+
+    m_greeting = new QLabel(central);
+    m_greeting->setAlignment(Qt::AlignCenter);
+
+    m_nameEdit = new QLineEdit(central);
+    m_nameEdit->setPlaceholderText(i18n("Your name"));
+    m_nameEdit->setClearButtonEnabled(true);
+
+    auto *saveButton = new QPushButton(i18n("Remember"), central);
+    connect(saveButton, &QPushButton::clicked, this, &MainWindow::saveGreeting);
+
+    layout->addWidget(m_greeting);
+    layout->addWidget(m_nameEdit);
+    layout->addWidget(saveButton);
+    setCentralWidget(central);
+
+    KConfig config(QStringLiteral("parch-sysinforc"));
+    KConfigGroup general = config.group(QStringLiteral("General"));
+    const QString last = general.readEntry(QStringLiteral("LastGreeting"), QString());
+    if (last.isEmpty()) {
+        m_greeting->setText(i18n("Hello, Parch"));
+    } else {
+        m_greeting->setText(i18n("Hello again, %1", last));
+        m_nameEdit->setText(last);
+    }
+
+    QMenu *fileMenu = menuBar()->addMenu(i18n("&File"));
+    fileMenu->addAction(KStandardAction::quit(qApp, &QCoreApplication::quit, this));
+
+    statusBar()->showMessage(i18n("Ready"));
+}
+
+void MainWindow::saveGreeting()
+{
+    const QString name = m_nameEdit->text().trimmed();
+    KConfig config(QStringLiteral("parch-sysinforc"));
+    KConfigGroup general = config.group(QStringLiteral("General"));
+    general.writeEntry(QStringLiteral("LastGreeting"), name);
+    config.sync();
+
+    m_greeting->setText(name.isEmpty() ? i18n("Hello, Parch")
+                                       : i18n("Hello, %1", name));
+    statusBar()->showMessage(i18n("Greeting saved"));
+}
+```
+
+KConfig stores the file as `~/.config/parch-sysinforc` and merges the
+Plasma-wide defaults automatically. `KStandardAction::quit` wires the
+standard Quit action with its standard shortcut, which is why `kxmlgui` is
+in the dependency list.
+
+## 4. Build with CMake and ECM
+
+`CMakeLists.txt`:
+
+```cmake
+cmake_minimum_required(VERSION 3.24)
+project(parch-sysinfo VERSION 0.1.0 LANGUAGES CXX)
+
+set(QT_MIN_VERSION "6.6.0")
+set(KF_MIN_VERSION "5.240.0")
+
+find_package(ECM ${KF_MIN_VERSION} REQUIRED NO_MODULE)
+set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
+
+include(KDEInstallDirs)
+include(KDECMakeSettings)
+include(KDECompilerSettings NO_POLICY_SCOPE)
+include(FeatureSummary)
+
+set(CMAKE_AUTOMOC ON)
+
+find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Widgets)
+find_package(KF6 ${KF_MIN_VERSION} REQUIRED
+    COMPONENTS CoreAddons I18n Config XmlGui)
+
+add_executable(parch-sysinfo
+    src/main.cpp
+    src/mainwindow.cpp
+    src/mainwindow.h
+)
+
+target_link_libraries(parch-sysinfo
+    Qt6::Widgets
+    KF6::CoreAddons
+    KF6::I18n
+    KF6::ConfigCore
+    KF6::XmlGui
+)
+
+install(TARGETS parch-sysinfo ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(FILES data/org.parch.sysinfo.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES data/org.parch.sysinfo.metainfo.xml DESTINATION ${KDE_INSTALL_METAINFODIR})
+install(FILES data/org.parch.sysinfo.svg
+    DESTINATION ${KDE_INSTALL_FULL_ICONDIR}/hicolor/scalable/apps)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/po)
+    ki18n_install(po)
+endif()
+
+feature_summary(WHAT ALL INCLUDE_QUIET_PACKAGES FATAL_ON_MISSING_REQUIRED_PACKAGES)
+```
+
+The ECM include set provides the standard KDE install layout: binaries to
+`/usr/bin`, the desktop entry to `usr/share/applications`, and AppStream
+metadata to `usr/share/metainfo`.
+
+## 5. Build and run
+
+From the project root, user privileges:
+
+```bash
+$ cmake -B build -DCMAKE_BUILD_TYPE=Release
+$ cmake --build build
+$ ./build/parch-sysinfo
+```
+
+Expected result: a Breeze-styled window that greets you, remembers your name
+across restarts, and closes through File, Quit with the standard Ctrl+Q
+shortcut. To install it system-wide: `sudo cmake --install build`.
+
+Validation checks:
+
+```bash
+$ ./build/parch-sysinfo --version
+$ ls ~/.config/parch-sysinforc       # KConfig wrote here after saving
+```
+
+## 6. Translations with ki18n
+
+`i18n()` looks up the catalog named after the application, so the Persian
+catalog goes to `po/fa/parch-sysinfo.po`:
+
+```text
+msgid ""
+msgstr ""
+"Project-Id-Version: parch-sysinfo 0.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fa\n"
+
+msgid "Hello, Parch"
+msgstr "سلام، پارچ"
+
+msgid "Hello again, %1"
+msgstr "سلام دوباره، %1"
+```
+
+Regenerate the template with `xgettext` (or `make pot` if you add ECM's
+`ECMPoQmTools`), translate, and the `ki18n_install(po)` block in CMake
+installs the compiled catalogs. Plural handling, RTL specifics, and the
+Persian-at-release rule are on [localization](/app-dev/localization/).
+
+## 7. The KXmlGuiWindow variant
+
+For applications with toolbars and user-customizable shortcuts, KDE's
+idiomatic shell is `KXmlGuiWindow` with its `KActionCollection`:
+
+```cpp
+#include <KStandardAction>
+#include <KXmlGuiWindow>
+
+class SysinfoWindow : public KXmlGuiWindow
+{
+public:
+    explicit SysinfoWindow(QWidget *parent = nullptr)
+        : KXmlGuiWindow(parent)
+    {
+        setCentralWidget(new QLabel(i18n("Hello, Parch"), this));
+        KStandardAction::quit(qApp, &QCoreApplication::quit,
+                              actionCollection());
+        setupGUI(Save | Create, QStringLiteral("parch-sysinfoui.rc"));
+    }
+};
+```
+
+`setupGUI()` persists the user's toolbar and shortcut layout, which requires
+shipping an XMLGUI rc file:
+
+```bash
+$ install -Dm644 parch-sysinfoui.rc \
+    "$pkgdir/usr/share/kxmlgui6/parch-sysinfo/parch-sysinfoui.rc"
+```
+
+Use plain `QMainWindow` for simple tools and `KXmlGuiWindow` when the user
+should be able to rearrange actions.
+
+## 8. Desktop entry, icon, and store metadata
+
+`data/org.parch.sysinfo.desktop`:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Parch Sysinfo
+Name[fa]=اطلاعات سیستم پارچ
+Comment=Show basic system information
+Comment[fa]=نمایش اطلاعات اولیه سیستم
+Exec=parch-sysinfo
+Icon=org.parch.sysinfo
+Terminal=false
+Categories=System;
+```
+
+A one-line SVG is enough for the hicolor icon
+(`data/org.parch.sysinfo.svg`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
+  <rect width="64" height="64" rx="12" fill="#1d99f3"/>
+</svg>
+```
+
+For store listings, `data/org.parch.sysinfo.metainfo.xml` carries the
+AppStream record that Discover and other AppStream-based stores index:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.parch.sysinfo</id>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Parch Sysinfo</name>
+  <name lang="fa">اطلاعات سیستم پارچ</name>
+  <summary>Show basic system information</summary>
+  <summary lang="fa">نمایش اطلاعات اولیه سیستم</summary>
+  <releases>
+    <release version="0.1.0" date="2026-10-25"/>
+  </releases>
+</component>
+```
+
+## Packaging and troubleshooting
+
+Packaging a C++ app is a `cmake` PKGBUILD with
+`makedepends=('cmake' 'extra-cmake-modules' 'qt6-base' 'kcoreaddons' 'ki18n'
+'kconfig' 'kxmlgui')`; see [packaging](/packaging/) for the full workflow.
+Common build failures:
+
+- `Could NOT find ECM`: the `extra-cmake-modules` package is missing.
+- `Qt6Widgets not found`: `qt6-base` (and `qt6-tools`) missing.
+- `KF6XmlGui` errors: `kxmlgui` missing, or you linked `KF6::XmlGui` without
+  the `XmlGui` component in `find_package`.
+
+## Related pages
+
+- [Choosing a toolkit](/app-dev/toolkit-guide/): when Qt/KF6 beats GTK.
+- [Localization](/app-dev/localization/): full gettext and Persian rules.
+- [Desktop integration](/app-dev/desktop-integration/): Wayland app ids and
+  MIME associations.
+- [HIG](/hig/): the design rules a Plasma app must satisfy.

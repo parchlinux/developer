@@ -1,0 +1,57 @@
+---
+title: "Theming & branding"
+description: "SDDM, GRUB, Plymouth, wallpapers, and the Arts pipeline."
+order: 4
+---
+
+# Theming & branding
+
+Parch's visual identity lives in a set of theme packages applied at every
+boot stage. Each is a separate repository, packaged in world, and consumed
+by the ISO profiles.
+
+## The theme packages
+
+| Stage | Package | Repository |
+|---|---|---|
+| Boot splash | `parch-plymouth` (plus `parch-plymouth-waves` variant) | `parch-plymouth` |
+| GRUB menu | `parch-grub-theme` | `parch-grub-theme` |
+| Login (SDDM) | `parch-sddm` | `parch-sddm` |
+| GNOME | `gnome-parch` | `gnome-parch` |
+| Plasma | color schemes + `plasma-setup` | component repos |
+| Wallpapers | `Parch-Wallpapers`, `parch-backgrounds-community`, nature set | wallpaper repos |
+| Artwork source | PNG/SVG sources | `Arts`, `artwork`, `assets` |
+
+## How a theme change flows
+
+1. Edit in the theme's repository (QML for SDDM, theme config for GRUB,
+   Plymouth plugins for splash).
+2. Package it (most theme packages are simple `package()` file copies; see
+   [example packages](/packaging/example-packages/)).
+3. Test in a VM at the right stage: splash changes need a slow boot to be
+   visible (add `plymouth.enable=0` removal or a debug pause), GRUB changes
+   show in the menu, SDDM on logout.
+4. Check both themes and both directions: light and dark backgrounds,
+   Persian (RTL) text where the theme renders any.
+
+## Rules
+
+<Checklist>
+  - Themes never hardcode colors that must adapt (user accent, dark mode);
+    read them from the desktop theme where the stage allows it.
+  - Logos and artwork come from the `Arts`/`artwork` repos, not binary blobs
+    in theme code.
+  - Every boot stage must have a manual fallback (Esc in GRUB, TTY switch
+    past SDDM, plymouth.disable on the kernel line) so a broken theme never
+    locks users out.
+  - Test on real hardware once before release: VMs forgive GPU quirks that
+    hardware does not.
+</Checklist>
+
+## Contributing artwork
+
+Wallpapers, icon sets, and promotional art go to the
+[Arts](https://github.com/parchlinux/Arts) and
+[artwork](https://github.com/parchlinux/artwork) repositories, which ship
+into the wallpaper packages. Keep licenses explicit: artwork without a
+license cannot be distributed.

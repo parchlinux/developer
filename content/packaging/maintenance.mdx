@@ -1,0 +1,79 @@
+---
+title: "Package maintenance"
+description: "Keeping packages healthy after the first upload: updates, security, and handover."
+order: 7
+---
+
+# Package maintenance
+
+Shipping a package is the start of a commitment: Parch users install it on
+rolling systems, and upstream keeps moving.
+
+## The update cycle
+
+When upstream releases a new version:
+
+```bash
+$ cd ~/packages/parch-notes
+$ # edit pkgver (and source url if the tag pattern changed)
+$ updpkgsums
+$ updpkgver 0.2.0 2>/dev/null || true   # helper, if installed; otherwise edit by hand
+$ makepkg -s
+$ namcap *.pkg.tar.zst
+$ sudo pacman -U *.pkg.tar.zst          # upgrade over the old version
+$ # exercise the app's core features
+```
+
+Bump `pkgrel` (not `pkgver`) when the package itself changes without an
+upstream release: a patch, a dependency fix, a rebuild against a new soname.
+Reset `pkgrel` to 1 when `pkgver` changes. The full semantics are in
+[naming and versioning](/packaging/naming-versioning/).
+
+## Rebuilds on soname change
+
+When a library upgrades its soname, every package linking it must rebuild:
+
+```bash
+$ # find reverse dependencies of a library
+$ pactree -r <library>
+```
+
+Coordinate in the repository issue tracker: one maintainer announces the
+rebuild list, packages are rebuilt as a set, and the repos update together.
+Users mid-upgrade must never see a half-migrated dependency graph.
+
+## Security updates
+
+When a vulnerability affects a Parch package:
+
+1. Verify the affected versions and the upstream fix.
+2. Ship the fixed version or the backported patch quickly, with `pkgrel+1`.
+3. Note the CVE and the fix in the commit message and the submission email
+   subject (`[SUBMISSION] Security update to <name> (CVE-XXXX-YYYY)`).
+4. For sensitive reports, contact the maintainers privately first rather
+   than opening a public issue.
+
+See [Security](/security/) for the distribution-wide policy and reporting
+channels.
+
+## Deprecation and removal
+
+Packages are removed when upstream dies, when nothing depends on them, or
+when they duplicate an Arch package. The sequence: announce in the issue
+tracker, mark the package as unsupported, wait for objection, request
+removal with `[SUBMISSION] Removal request: <name>`. Never leave a package
+broken and orphaned; removal is cleaner.
+
+## Orphans and takeovers
+
+If a maintainer goes inactive, anyone may request takeover with
+`[SUBMISSION] Takeover of <name>`, stating the maintenance plan. Takeover
+preserves the package history; it does not reset review requirements for
+future updates.
+
+## Supporting users
+
+Most maintainer time goes to user reports. Respond in the
+[forum](https://forum.parchlinux.com) where the discussion is public and
+searchable; convert recurring questions into documentation (this portal
+accepts contributions).

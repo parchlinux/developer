@@ -1,0 +1,49 @@
+---
+title: "Desktop files, icons & MIME"
+description: "Application metadata: desktop entries, icons, MIME associations, and actions."
+order: 25
+---
+
+# Desktop files, icons & MIME
+
+Applications integrate with the desktop through metadata. A package that
+installs a binary without a desktop file is, from the user's perspective,
+not installed.
+
+## Desktop entry checklist
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Parch Welcome
+Name[fa]=خوش‌آمد پارچ
+GenericName=First run assistant
+GenericName[fa]=دستیار اجرای اول
+Comment=Set up your Parch system
+Comment[fa]=سیستم پارچ خود را راه‌اندازی کنید
+Exec=parch-welcome
+Icon=parch-welcome
+Terminal=false
+Categories=System;Utility;
+Keywords=welcome;setup;پارچ;خوش آمد;
+StartupNotify=true
+StartupWMClass=parch-welcome
+```
+
+<Checklist>
+  - `Name`, `GenericName`, and `Comment` carry `[fa]` translations, Persian
+    names are required for Parch software, not optional.
+  - `Keywords` include both languages so search finds the app either way.
+  - `Icon` references the icon *name* installed into hicolor, never a path.
+  - `StartupWMClass` matches the app's real window class on Wayland.
+  - Actions (`[Desktop Action …]`) expose tasks like “New window”.
+</Checklist>
+
+## MIME associations
+
+- Declare handled types in `MimeType=` and ship a `*.xml` MIME cache file
+  when defining new types.
+- Change default associations only with user intent (never hijack on
+  install/upgrade).
+- Update the caches in the package's install script hooks
+  (`update-desktop-database`, `update-mime-database`, `gtk-update-icon-cache`).

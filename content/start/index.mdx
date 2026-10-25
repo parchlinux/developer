@@ -1,0 +1,56 @@
+---
+title: "Getting Started"
+description: "Set up a Parch development workstation and ship your first app, package, and ISO."
+index: true
+order: 0
+---
+
+# Getting Started
+
+Welcome to Parch development. Parch GNU/Linux is an Arch Linux-based
+distribution focused on usability, Persian-language support, and the KDE
+Plasma desktop. This section takes you from an empty machine to your first
+contribution.
+
+<CardGrid>
+  <Card title="Introduction to Parch" href="/start/introduction/">
+    What Parch is, how it relates to Arch Linux, and which parts the Parch
+    team maintains itself.
+  </Card>
+  <Card title="Set up your workstation" href="/start/workstation-setup/">
+    Install Parch or Arch, add the world repository, and install the core
+    build toolchain.
+  </Card>
+  <Card title="Git workflow" href="/start/git-workflow/">
+    How the Parch GitHub organization is organized and how changes flow.
+  </Card>
+  <Card title="First app tutorial" href="/start/first-app/">
+    Build a small GTK4/libadwaita application from empty directory to
+    installable package.
+  </Card>
+  <Card title="First package tutorial" href="/start/first-package/">
+    Write, build, and test your first PKGBUILD with makepkg.
+  </Card>
+  <Card title="First ISO tutorial" href="/iso/build-first-iso/">
+    Build a bootable Parch ISO from the template profile (opens the ISO
+    section).
+  </Card>
+  <Card title="Contribution workflow" href="/start/contribution-workflow/">
+    Where to report bugs, propose changes, and get your work reviewed.
+  </Card>
+  <Card title="Common problems" href="/start/common-problems/">
+    The errors everyone hits first, with fixes.
+  </Card>
+</CardGrid>
+
+## The three core skills
+
+Almost everything in this portal builds on three skills. Learn them in this
+order:
+
+1. **Build packages.** Every piece of Parch software, from the kernel to the
+   Welcome app, ships as a pacman package. See [Packaging](/packaging/).
+2. **Build ISO images.** Releases and custom editions are assembled with the
+   archiso tool from per-edition profiles. See [ISO Building](/iso/).
+3. **Follow the HIG.** First-party apps share one design language. See
+   [Human Interface Guidelines](/hig/).

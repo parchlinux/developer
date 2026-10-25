@@ -1,0 +1,67 @@
+---
+title: "Component map"
+description: "What Parch maintains itself, and where everything else comes from."
+order: 7
+---
+
+# Component map
+
+Every Parch component, its upstream, and its source. Keep this map honest:
+it is how contributors figure out where a change belongs.
+
+## Parch-maintained components
+
+| Component | Repository | Language | Role |
+|---|---|---|---|
+| Pastor (Parch Store) | `pastor` | Rust | Software store and package browser |
+| Parch Welcome | `parch-welcome` | Rust + libadwaita | First-run assistant |
+| parch-update | `parch-update` | Shell | Update notifier/applier with systray applet |
+| Parch Kernel Manager | `PKM` | Python + GTK4/libadwaita | Kernel browsing and installation |
+| MirrorMan | `mirrorman` | Rust | Mirror ranking and switching |
+| GameHub | `gamehub` | Rust | Gaming toolkit |
+| Parchdroid | `parchdroid` + `parchdroid-kcm` | Python / C++ | Android apps via Waydroid |
+| Pordle | `pordle` | Rust | Persian word game |
+| Parch Driver Manager | `Parch-Driver-Manager` | Python | Vendor driver detection/install |
+| plasma-setup | `plasma-setup` | C++ | Plasma first-run setup |
+| systuner | `systuner` | C | System tuning |
+| parchprobe | `parchprobe` | Zig | Hardware probe |
+| archinstall-rs | `archinstall-rs` | Rust | TUI installer (new generation) |
+| Calamares (Parch) | `calamares-parch` | QML/Shell | Installer branding, modules, presets |
+| base-config | `base-config` | Shell | Base system configuration |
+| parch-config | `parch-config` | Shell | System configuration tooling |
+| gnome-parch | `gnome-parch` | Shell | GNOME theming and integration |
+| parch-sddm | `parch-sddm` | QML | SDDM login theme |
+| parch-grub-theme | `parch-grub-theme` | Shell | GRUB theme |
+| parch-plymouth | `parch-plymouth` | Shell | Boot splash |
+| parch-persian-fonts / arad-fonts | `pkgbuilds`, world | - | Persian font packaging |
+| ISO profiles | `parch-iso-*` | Shell | One repo per edition |
+| world / Void | `world`, `Void` | Python tooling | Package repositories |
+
+## Consumed from upstream, unmodified
+
+- Arch Linux repositories `core` and `extra` (the bulk of any installed
+  system).
+- The Linux kernel, systemd, mkinitcpio, pacman.
+- KDE Plasma, GNOME, XFCE, Hyprland, and their applications.
+- Calamares upstream (the Parch flavor packages configuration on top).
+
+## Parch-modified upstream
+
+| Upstream | Parch package | Why |
+|---|---|---|
+| archiso | `archiso` 99-1 in world | Parch build patches and defaults |
+| Calamares | `calamares` 3.4.3-8 in world | Parch modules and fixes |
+
+When a Parch-modified package drifts too far from upstream, the maintenance
+cost shows up at every upstream update. The decision framework (patch
+downstream, fix upstream, or fork) is in
+[Packaging](/packaging/pkgbuild-reference/) and
+[Distribution development](/distribution/).
+
+## Ownership boundaries
+
+<Checklist>
+  - Upstream bug: file it upstream; Parch tracks the fix.
+  - Parch packaging bug: fix in the PKGBUILD or the component repo.
+  - Unclear: ask in the component repo's issue tracker before patching.
+</Checklist>

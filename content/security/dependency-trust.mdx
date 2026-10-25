@@ -1,0 +1,62 @@
+---
+title: "Dependency trust"
+description: "Verifying sources, judging upstream, and managing supply-chain risk."
+order: 1
+---
+
+# Dependency trust
+
+Every package is a chain of trust: your build machine, the source tarball,
+its checksums, upstream's releases, and their dependencies. This page is
+about keeping that chain honest.
+
+## Source verification in PKGBUILDs
+
+```bash
+# The baseline: real sha256 checksums, regenerated with updpkgsums,
+# reviewed when they change.
+sha256sums=('a1b2c3...')
+
+# Where upstream signs releases, pin the key and let makepkg verify:
+validpgpkeys=('...release signing key fingerprint...')
+
+# VCS sources: pin to a commit, not a moving branch.
+source=("git+https://github.com/parchlinux/pastor.git#commit=abcdef0123")
+```
+
+<Checklist>
+  - `SKIP` is only for sources whose checksum genuinely cannot be computed
+    (git tags tracked at HEAD); every released tarball gets real checksums.
+  - When `updpkgsums` changes a checksum, diff what changed upstream before
+    trusting it (a "re-released" tarball with different content is a
+    classic compromise signal).
+  - `makepkg --skipinteg` exists for debugging and must never appear in a
+    submission or in CI.
+</Checklist>
+
+## Judging upstream
+
+Before introducing a package, Parch review asks:
+
+- Who publishes the source, and how long has the project existed?
+- Do releases come from the same infrastructure over time?
+- Are dependencies pinned and reviewed upstream, or pulled loosely?
+- Is the license real, and is the source complete (no blobs without
+  source)?
+
+## Supply-chain risks and mitigations
+
+| Risk | Mitigation in practice |
+|---|---|
+| Upstream re-releases a compromised tarball | Checksum review on every bump; diff releases when checksums move |
+| Dependency confusion (a dependency resolving to a different registry) | Pin dependency sources; in Rust/Python packaging, verify crates/PyPI names against upstream manifests |
+| Build scripts fetching at build time | Builds run with `--frozen`/`--locked` where the language supports it; vendored deps for release builds |
+| Malicious install scripts | `.INSTALL` hooks reviewed line by line; prefer pacman hooks entirely |
+| Compromised maintainer machine | Clean chroot builds; no `makepkg` from unreviewed directories with sudo |
+
+## The honest limits
+
+Checksums prove the source matches what the packager downloaded once; they
+do not prove the source is safe. Signing (upstream keys, then Parch
+repository signing) is what closes that gap, and is tracked as proposed
+work in [release artifacts](/security/release-artifacts/).

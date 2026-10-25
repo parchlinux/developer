@@ -1,0 +1,77 @@
+---
+title: "Persian & RTL specifics"
+description: "Numerals, typography, mixed direction, and locale defaults."
+order: 2
+---
+
+# Persian & RTL specifics
+
+The HIG covers layout mirroring rules ([RTL & Persian](/hig/rtl-and-persian/)).
+This page collects the implementation-level details: what to do in code and
+data.
+
+## Numerals
+
+- Persian UI strings use Persian digits (۱۲۳۴۵۶۷۸۹۰) for human-facing
+  numbers when the locale is fa; format through the platform's locale
+  formatting rather than hand-converting.
+- Versions, package names, file sizes in technical contexts, and anything
+  copy-pasteable (commands, URLs) stay Latin digits.
+- Calendars: Gregorian is the default. Where a Solar Hijri option is
+  offered (desktop settings), it is opt-in.
+
+## Typography in code
+
+```css
+/* Correct stack: Latin falls to Saira, Persian to Estedad */
+font-family: "Saira", "Estedad", sans-serif;
+/* Estedad needs ~1.05x line-height vs Latin at equal size */
+```
+
+- Never letter-space Arabic-script text; joining breaks.
+- Font sizes in relative units (`rem`) so Estedad's taller metrics scale
+  with user preferences.
+- Bold Persian text renders from Estedad Bold; do not synthesize bold via
+  stroke on the Light weight.
+
+## Mixed direction (bidi)
+
+Persian sentences routinely contain LTR islands: package names, versions,
+paths. Rules:
+
+```bash
+# Rendered inside a Persian sentence, this stays LTR and unbroken:
+# «بسته‌ی plasma-desktop به‌روزرسانی شد»
+```
+
+- Isolate LTR islands: in HTML/CSS with `unicode-bidi: isolate` or
+  `<bdi>`; in Qt with `QTextLayout` bidi support (automatic in labels); in
+  GTK with Pango markup where needed.
+- Never assemble mixed-direction strings by concatenation; keep the full
+  sentence in the catalog with placeholders, so the translator controls
+  ordering.
+
+## Locale defaults of record
+
+| Setting | Value |
+|---|---|
+| Locale | `fa_IR.UTF-8` (with `en_US.UTF-8` generated as fallback) |
+| Timezone | `Asia/Tehran` |
+| Keyboard | `fa` layout available from the live session |
+| First-run language | Persian for Iranian installs, selectable everywhere |
+
+These are set by the installer ([Calamares](/iso/calamares-installer/))
+and documented as defaults, not constraints: an English install in Germany
+works identically.
+
+## Number/date formatting in practice
+
+```bash
+# Inspect what the locale produces before hardcoding anything:
+$ LC_ALL=fa_IR.UTF-8 python3 -c \
+  "import locale; print(locale.format_string('%d', 1234567, grouping=True))"
+```
+
+Prefer platform APIs (`locale.format_string`, `Intl.NumberFormat`, Qt
+`QLocale`) over hand-rolled formatting; they follow the user's actual
+locale, which may not be fa.

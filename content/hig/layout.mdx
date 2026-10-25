@@ -1,0 +1,58 @@
+---
+title: "Layout, spacing & density"
+description: "The 4px grid, content widths, breakpoints, and responsive behavior."
+order: 4
+---
+
+
+# Layout, spacing & density
+
+## The grid
+
+All spacing derives from a 4px base unit. Use the spacing scale (4, 8, 12,
+16, 24, 32, 48) instead of arbitrary values; adjacent elements sit at the
+closer scale step, groups separate at a wider one.
+
+<SpecTable
+  columns={["Space", "Usage"]}
+  rows={[
+    ["4", "Icon-to-label, chip padding"],
+    ["8", "Inside controls, list item internals"],
+    ["12", "Between related rows"],
+    ["16", "Card padding, between groups"],
+    ["24", "Between card sections"],
+    ["32–48", "Page gutters, major section breaks"],
+  ]}
+/>
+
+## Content width
+
+Reading content caps at ~768px (60–80 characters). Application bodies may use
+the full window, but list columns stay within ~900px to keep scan paths short.
+
+## Alignment
+
+- Start-aligned text in both directions (left in LTR, right in RTL), center
+  alignment is for empty states and onboarding only.
+- Forms label above the field, start-aligned; related controls group into
+  cards or bordered groups.
+- Numeric columns in tables align to the end (right in LTR).
+
+## Breakpoints
+
+<SpecTable
+  columns={["Width", "Layout"]}
+  rows={[
+    ["≥ 1280px", "Three-column docs shell; full sidebars visible"],
+    ["1024–1279px", "Left sidebar visible; TOC hidden"],
+    ["768–1023px", "Content-only; sidebars become drawers"],
+    ["< 768px", "Single column; navigation drawers; 44px touch targets"],
+  ]}
+/>
+
+## Density & scaling
+
+Applications must remain usable at 100%, 125%, and 150% interface scaling and
+when the system font size changes. Prefer rem-based sizing; avoid fixed
+pixel heights on text containers; test with Estedad, which runs taller than
+Saira at the same size.

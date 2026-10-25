@@ -1,0 +1,125 @@
+---
+title: "Naming and versioning"
+description: "Parch package naming rules, the pkgver/pkgrel/epoch version model, VCS package versions, and what to bump when."
+order: 4
+source: "ch. 37, 51"
+---
+
+# Naming and versioning
+
+Package names and versions are the first thing reviewers check and the hardest thing to change later. This page gives the naming rules that apply to Parch packages, explains how pacman compares versions, and tells you exactly which number to bump and when.
+
+## Name rules
+
+These apply to every `pkgname` submitted to Parch:
+
+- **Lowercase ASCII only**: letters `a` to `z`, digits, and hyphens. Uppercase letters are converted to lowercase even when upstream uses CamelCase.
+- **No spaces or odd punctuation**: hyphens are the only separator.
+- **No version numbers in the name**: `example-tool-1.2` is wrong, versions belong in `pkgver`.
+- **No architecture suffixes**: `example-tool-x86_64` is wrong, architectures are handled by the `arch` array.
+- **Reasonably short**: descriptive names under about 50 characters.
+- **Match upstream** where the project is not Parch-specific: package `wavemon` as `wavemon`, not `parch-wavemon`.
+
+## Prefixes and suffixes used in Parch
+
+| Pattern | When to use | Example |
+| --- | --- | --- |
+| `parch-` | Packages written for Parch, or Arch packages rebuilt with Parch patches and branding. | `parch-welcome`, `parch-update`, `calamares-parch` |
+| `python-` / `perl-` / `ruby-` / `nodejs-` | Language module packages that install into that language's runtime. | `python-requests`, `nodejs-typescript` |
+| `lib` | Shared library packages, following the upstream library name. | `libchart`, `parch-libchart` |
+| `-docs` | Documentation split out into its own package. | `parch-libchart-docs` |
+| `-git`, `-svn`, `-hg`, `-bzr`, `-cvs` | VCS checkout packages tracking a branch. | `parch-welcome-git` |
+
+<Callout kind="important" title="No -devel suffix, no python2">
+  Parch follows upstream Arch conventions here: development headers ship
+  together with the library package instead of a separate `-devel` package,
+  and Python 2 is end of life, so there is no `python2-` prefix. The old
+  `community` repository also no longer exists, it was merged into `extra`
+  upstream. Third-party repositories, if you run one yourself, keep the
+  `parch-` prefix (`parch-gaming`, `parch-llvm`).
+</Callout>
+
+## Split packages and pkgbase
+
+When one source build produces several packages, set `pkgbase` to the shared base and list the outputs in `pkgname=()`:
+
+<CodeBlock title="Split package declaration">
+
+```bash
+pkgbase=parch-libchart
+pkgname=('parch-libchart' 'parch-libchart-docs')
+```
+
+</CodeBlock>
+
+For single-package builds, `pkgname` alone is enough and makepkg derives `pkgbase` from it. A complete split example is on the [example packages](/packaging/example-packages/) page.
+
+## pkgver, pkgrel, epoch
+
+Pacman compares versions as `epoch:pkgver-pkgrel`. Understanding each part tells you what to bump.
+
+**pkgver** is the upstream version. It must not contain spaces, hyphens, or colons (a colon is reserved for the epoch separator). If upstream uses characters pacman cannot store, convert them: `1.0.0_beta` instead of `1.0.0-beta`. Start the string with a digit so comparisons behave.
+
+**pkgrel** is your packaging revision, a positive integer. It exists so you can ship PKGBUILD fixes without touching the upstream version.
+
+**epoch** is an integer, normally left empty. When set, `1:0.9-1` beats `2.0-1`, because pacman compares epoch first. Only use it when upstream changes to a versioning scheme where the new releases compare numerically older, for example switching from date-based versions like `20241103` to semver like `1.2.0`.
+
+| Change | What to bump | Example |
+| --- | --- | --- |
+| New upstream release | `pkgver`, reset `pkgrel=1` | `1.4.1-3` becomes `1.4.2-1` |
+| PKGBUILD fix, patch added, dependency fixed | `pkgrel`, same `pkgver` | `1.4.2-1` becomes `1.4.2-2` |
+| Epoch needed for a scheme change | set `epoch`, keep `pkgver` | `20241103-1` becomes `1:1.2.0-1` |
+| Rebuild against a rebuilt library | `pkgrel` of the dependent | see [maintenance](/packaging/maintenance/) |
+
+## VCS packages and pkgver()
+
+VCS packages (`-git` and friends) build from a branch, so `pkgver` is generated at build time by a `pkgver()` function. Use the standard format `<last release>.r<commits since>.<short hash>`, which compares correctly against future tagged releases:
+
+<CodeBlock title="pkgver() for a git package">
+
+```bash
+pkgver() {
+  cd "${pkgname}"
+  (
+    set -o pipefail
+    git describe --long --tags --abbrev=7 2>/dev/null |
+      sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+      printf "0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+  )
+}
+```
+
+</CodeBlock>
+
+Rules that go with it:
+
+- The `source` array for VCS packages uses git URLs (`git+https://...`) and their integrity entry is `SKIP`. `SKIP` is allowed only for VCS sources, never for tarballs.
+- `conflicts` and `provides` should point at the stable package name, so installing the `-git` variant replaces the stable one cleanly.
+- VCS packages are for development tracking. Submit them only when users really need a moving target, otherwise package the latest release.
+
+## Reproducible builds
+
+Two installs of the same package version should produce identical files, which is what makes builds verifiable. Practical rules:
+
+- Do not embed timestamps, hostnames, or build paths into shipped files. Meson: use `--buildtype=plain`. CMake: use `-DCMAKE_BUILD_TYPE=None` unless the project handles this.
+- Respect `SOURCE_DATE_EPOCH` in any script that writes dates, so output depends only on the source tree.
+- Keep `strip` and `zipman` (the `options` array defaults) enabled so debug info is split deterministically; disable `strip` only for languages that cannot be stripped, with `options=('!strip')`.
+- Add `debug` when you want debug symbol packages while developing, and leave it off for releases.
+- Build twice with `pkgctl build` and compare checksums of the two results when you want proof, see [testing and validation](/packaging/testing-validation/).
+
+## Checklist
+
+<Checklist>
+  - Name is lowercase, hyphenated, has no version or architecture in it.
+  - `parch-` prefix only where the package is Parch-specific.
+  - Language prefixes (`python-`, `nodejs-`, ...) match the runtime, and there is no `-devel` or `python2-` anywhere.
+  - `pkgrel` reset to 1 on the version bump, incremented on packaging-only fixes.
+  - `epoch` untouched unless a version scheme genuinely broke comparisons.
+  - VCS packages use `SKIP` checksums and a correct `pkgver()`.
+</Checklist>
+
+## Related pages
+
+- [PKGBUILD reference](/packaging/pkgbuild-reference/): the variables summarized here.
+- [Submission](/packaging/submission/): how naming and version choices get reviewed.
+- [Command reference](/reference/): quick syntax for makepkg and pkgctl.

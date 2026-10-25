@@ -1,0 +1,60 @@
+---
+title: "Platform Architecture"
+description: "How Parch is assembled: Arch foundations, package management, desktop stack, and ISO composition."
+index: true
+order: 0
+---
+
+# Platform Architecture
+
+Parch is Arch Linux with a purpose-built layer on top. Understanding where
+that layer begins and ends is the difference between working *with* the
+distribution and fighting it.
+
+<CardGrid>
+  <Card title="Arch foundations" href="/architecture/arch-foundations/">
+    Pacman and ALPM, the rolling release, the build system Parch inherits.
+  </Card>
+  <Card title="Repositories" href="/architecture/repositories/">
+    world and Void: how Parch packages are stored, served, and consumed.
+  </Card>
+  <Card title="System stack" href="/architecture/system-stack/">
+    Kernel, initramfs, systemd, bootloaders, and filesystems.
+  </Card>
+  <Card title="Graphics & display" href="/architecture/graphics-wayland/">
+    Wayland, X11 fallback, drivers, and the KDE Plasma desktop.
+  </Card>
+  <Card title="Persian support" href="/architecture/persian-support/">
+    Fonts, locales, input methods, and RTL in the platform.
+  </Card>
+  <Card title="ISO composition" href="/architecture/iso-composition/">
+    How profiles, airootfs, and the installer combine into bootable images.
+  </Card>
+  <Card title="Component map" href="/architecture/component-map/">
+    What Parch maintains itself, and where everything upstream comes from.
+  </Card>
+</CardGrid>
+
+## The one-picture view
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ First-party apps: Pastor, Welcome, Update, PKM …    │  Parch
+├─────────────────────────────────────────────────────┤
+│ Desktop integration: themes, SDDM/GRUB/PLYMOUTH     │  Parch
+├─────────────────────────────────────────────────────┤
+│ Installer: Calamares (parch flavor)                 │  Parch flavor
+├─────────────────────────────────────────────────────┤
+│ world repository (parch packages) · Void (testing)  │  Parch
+├─────────────────────────────────────────────────────┤
+│ ISO profiles (parch-iso-*) built with archiso       │  Parch
+├─────────────────────────────────────────────────────┤
+│ KDE Plasma / GNOME / XFCE / Hyprland                │  upstream
+├─────────────────────────────────────────────────────┤
+│ pacman + ALPM · systemd · linux kernel · Arch repos │  upstream
+└─────────────────────────────────────────────────────┘
+```
+
+Everything below the ISO-profiles line comes from upstream and follows
+upstream behavior. Everything above it is Parch's responsibility, and is
+documented in this portal.

@@ -1,0 +1,65 @@
+---
+title: "Commands"
+description: "Parch-specific and build-related commands in one table."
+order: 1
+---
+
+# Commands
+
+## ISO building
+
+| Command | Where | What it does |
+|---|---|---|
+| `sudo ./build.sh` | profile repo root | Installs build deps, then builds the ISO (root required) |
+| `sudo mkarchiso -v iso/` | profile repo root | Builds the ISO directly, skipping dep installation |
+| `7z -v500m a out/*.iso.zip out/*.iso` | after build | Splits the ISO into 500 MB volumes for release upload |
+| `md5sum * > md5sums.txt` | `out/` | Produces the published checksum file |
+
+## Packages
+
+| Command | What it does |
+|---|---|
+| `makepkg -s` | Build a package, installing missing dependencies |
+| `makepkg -si` | Build and install the result |
+| `makepkg -sc --check` | Build in turn, run the `check()` suite |
+| `updpkgsums` | Regenerate `sha256sums` from the actual sources |
+| `makepkg --printsrcinfo` | Generate `.SRCINFO` to stdout |
+| `namcap PKGBUILD` | Lint a PKGBUILD |
+| `pkgctl build` | Build in a clean chroot |
+| `pkgctl repo clone <pkg>` | Fetch upstream Arch PKGBUILDs (replaces the removed `asp`) |
+| `repo-add <db.tar.gz> <pkgs...>` | Create/update a local repo database |
+| `pacman -U ./pkg.pkg.tar.zst` | Install a built package file |
+
+## Repositories and system
+
+| Command | What it does |
+|---|---|
+| `pacman -Sl world` | List packages in the world repository |
+| `pacman -Syu` | Full sync + upgrade (never `-Sy` alone) |
+| `pacman -Ql <pkg>` | List files owned by an installed package |
+| `pacman -Qo <file>` | Which package owns a file |
+| `pacman -Fy && pacman -Fl <pkg>` | Search file lists in sync databases |
+| `pactree -r <pkg>` | Reverse dependency tree |
+| `systemctl --failed` | Failed units after a boot problem |
+| `journalctl -b -p err` | This boot's errors |
+
+## App development
+
+| Command | What it does |
+|---|---|
+| `GDK_DEBUG=all GTK_DEBUG=interactive <app>` | Run a GTK app with the inspector |
+| `QT_LOGGING_RULES="qt.waylandclient.debug=true" <app>` | Qt Wayland logging |
+| `coredumpctl gdb <pid>` | Debug a crash from the journal |
+| `gdk-pixbuf-query-loaders --update-cache` | Refresh icon/pixbuf caches (hook territory) |
+| `update-desktop-database` | Refresh desktop entry database (hook territory) |
+| `desktop-file-validate <file>` | Validate a desktop entry |
+
+## Release workflow
+
+| Step | Command |
+|---|---|
+| Tag a release | `git tag -a v2026.11 -m "..." && git push origin v2026.11` |
+| Create the release | GitHub UI or `gh release create` (this triggers CI) |
+| Test channel check | [mirror.parchlinux.com/test/](https://mirror.parchlinux.com/test/) after a pre-release |
+
+Full context: [release automation](/iso/release-automation/).

@@ -1,0 +1,34 @@
+---
+title: "Lists, tables & cards"
+description: "Collections of items: rows, grids, cards, and their selection behavior."
+order: 16
+---
+
+# Lists, tables & cards
+
+## Choosing a container
+
+- **List rows**, heterogeneous metadata per item, scan by first column
+  (packages, updates, connections).
+- **Grid/cards**, visual identity matters more than attributes (app icons,
+  wallpapers).
+- **Table**, dense comparable values across many rows; numeric columns align
+  to the end.
+
+## Rules
+
+<Checklist>
+  - Rows are ≥ 44px tall with ≥ 8px separation; truncation follows the text
+    with an ellipsis, never wraps unpredictably in list rows.
+  - Selection: click selects, <kbd>Ctrl</kbd>+click toggles,
+    <kbd>Shift</kbd>+click ranges. Checkbox columns exist only when bulk
+    actions are real.
+  - Every list has an empty state and a stable sort order the user can see.
+  - Virtualize lists beyond ~200 items; keep scroll position across updates.
+  - Actions on items appear on hover/focus (desktop) or in a context menu ,
+    never as six always-visible icon buttons per row.
+</Checklist>
+
+The Store mock ([/mockups/store/](/mockups/store/)) shows cards with primary
+actions; the Update Manager ([/mockups/updater/](/mockups/updater/)) shows a
+checkbox list with a bulk action.

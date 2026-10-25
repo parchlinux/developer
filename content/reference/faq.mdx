@@ -1,0 +1,78 @@
+---
+title: "FAQ"
+description: "The questions that reach maintainers most often."
+order: 4
+---
+
+# FAQ
+
+## Is Parch just Arch with a theme?
+
+No. The theme layer is visible, but the substance is: a package repository
+(world) with Parch-maintained software, per-edition ISO profiles with a
+Calamares installer configured for Persian-first defaults, and a set of
+first-party applications (Pastor, Welcome, Update, Kernel Manager, and
+more). See [Platform Architecture](/architecture/).
+
+## Can I use AUR packages on Parch?
+
+Yes. Parch is Arch-compatible; the AUR works with any AUR helper or
+`makepkg`. Packages useful to Parch specifically belong in Parch's repos;
+everything else stays in the AUR. See
+[submission guidance](/packaging/submission/).
+
+## Why is SigLevel = Never for the world repo?
+
+Because packages in world are not GPG-signed today. It is documented as a
+known gap rather than hidden; the signing design and its status are in
+[Release artifacts](/security/release-artifacts/).
+
+## How often do ISOs release?
+
+Editions tag releases when their accumulated changes justify an image:
+there is no fixed cadence. Installed systems update continuously regardless
+of ISO releases.
+
+## Which edition should I build from?
+
+Start from `parch-iso-template` for custom work (it is minimal and meant
+for exactly that); build an existing edition like `parch-iso-plasma` first
+to verify your toolchain. See [Build your first ISO](/iso/build-first-iso/).
+
+## Do I have to use KDE Plasma to develop for Parch?
+
+No. Plasma is the flagship desktop, but Parch ships GNOME, XFCE, Hyprland,
+and minimal editions. Applications should feel native to their target
+desktop; the [toolkit guide](/app-dev/toolkit-guide/) helps you choose.
+
+## Why is Persian required in first-party apps?
+
+Because Parch's core audience is Persian-speaking, and treating Persian as
+a translation afterthought produces broken RTL, wrong fonts, and
+second-class UX. The contract: Persian ships at release. See
+[Localization](/localization/).
+
+## Where do I report a bug?
+
+In the affected repository's issue tracker, with logs. The
+[contribution workflow](/start/contribution-workflow/) maps each kind of
+bug to the right door.
+
+## Is there a Parch SDK?
+
+No. A unified SDK has been proposed, but nothing exists to download today;
+documentation that claims otherwise (an earlier handbook chapter) is
+outdated. Build with the standard toolchains in
+[Application Development](/app-dev/).
+
+## Can I make my own Parch edition?
+
+Yes: that is what the template profile is for. Rename it, keep the build
+working, and follow the branding rules in the
+[custom edition tutorial](/iso/custom-edition-tutorial/).
+
+## Does Parch work offline?
+
+Installed systems work offline for everything local; the Store shows
+installed packages offline, and updates simply wait. ISOs install offline
+except for net-editions. See [offline behavior](/hig/offline/).

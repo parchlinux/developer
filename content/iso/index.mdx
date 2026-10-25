@@ -1,0 +1,112 @@
+---
+title: "ISO Building & Customization"
+description: "Build, customize, test, and release Parch GNU/Linux ISO images with the archiso-based per-edition profile repositories."
+order: 1
+index: true
+source: "ch. 8–19, 49, 60–63, 68; live parch-iso-* repositories"
+---
+
+# ISO Building & Customization
+
+Parch GNU/Linux ships as a family of live/installer ISO images, one per edition. Each edition is a self-contained **archiso profile repository**, a small git repo holding a package list, a root-filesystem overlay, bootloader configuration, and a build script. From those few text files, `mkarchiso` assembles a bootable image that runs on both BIOS and UEFI machines, boots to an autologged-in live session, and installs Parch with the Calamares installer.
+
+This section covers the whole pipeline: how archiso works, what every file in a profile does, building your first ISO, customizing packages and the live environment, configuring the Calamares installer, testing, release automation, and a complete worked tutorial for your own edition.
+
+<Callout kind="important" title="One repository per edition">
+  Some older Parch documentation describes a single `parchlinux/iso` repository containing one directory per profile. That is not how the projects are laid out today. The live structure is **one git repository per edition**, `parch-iso-plasma`, `Parch-iso-gnome`, `parch-iso-hyprland`, `parch-iso-template`, and so on, each with an `iso/` directory at its root that `mkarchiso` consumes directly. Where older material and the repositories disagree, the repositories win.
+</Callout>
+
+## The editions
+
+All editions share the same skeleton: `iso/profiledef.sh`, `iso/packages.x86_64`, `iso/pacman.conf`, `iso/airootfs/`, and the bootloader directories. What differs between them is the package list, the display manager, and the Parch theming packages pulled from the **world** repository.
+
+| Repository | Edition | In one line |
+| --- | --- | --- |
+| `parch-iso-plasma` | KDE Plasma | Flagship desktop: Plasma with SDDM autologin and the full Parch theme set. |
+| `Parch-iso-gnome` | GNOME | GNOME Shell with GDM and the `gnome-parch` theme packages. |
+| `parch-iso-hyprland` | Hyprland | Tiling Wayland compositor edition for keyboard-driven workflows. |
+| `parch-iso-xfce` | Xfce | Lightweight, traditional GTK desktop. |
+| `parch-iso-cosmic` | COSMIC | The Rust-based COSMIC desktop edition. |
+| `parch-iso-dwm` | dwm | Minimal suckless dynamic-window-manager edition. |
+| `parch-iso-mini` | Mini | Reduced desktop package set for small images and quick installs. |
+| `parch-iso-lite` | Lite | Light desktop tuned for older or low-memory hardware. |
+| `parch-iso-base` | Base | Command-line live environment with no desktop. |
+| `parch-iso-template` | Template | Clean starting point for new editions, no desktop, fastest build. |
+
+<Callout kind="tip" title="Start from the template">
+  `parch-iso-template` is the intended base for new work: it builds quickly, contains every structural element, and adds nothing you would have to remove. Both [Build your first ISO](/iso/build-first-iso/) and the [Custom edition tutorial](/iso/custom-edition-tutorial/) use it.
+</Callout>
+
+## Anatomy of a profile repository
+
+Clone any edition and you will find the same shape. Here is `parch-iso-template`, annotated:
+
+<CodeBlock title="parch-iso-template repository layout">
+
+```text
+parch-iso-template/
+├── build.sh                      # Root-required wrapper: deps, mkarchiso, packaging
+├── README.md
+└── iso/                          # The archiso profile that mkarchiso consumes
+    ├── profiledef.sh             # ISO identity, buildmodes, bootmodes, compression, permissions
+    ├── packages.x86_64           # Package manifest installed into the live system
+    ├── bootstrap_packages.x86_64 # Packages for the bootstrap tarball buildmode
+    ├── pacman.conf               # Repositories used during the build (includes [world])
+    ├── airootfs/                 # File tree copied over the installed packages
+    ├── efiboot/                  # systemd-boot configuration (UEFI)
+    ├── grub/                     # GRUB configuration
+    ├── syslinux/                 # Syslinux configuration (BIOS)
+    └── public.key                # Parch repository public key material
+```
+
+</CodeBlock>
+
+Three moving parts decide almost everything:
+
+1. **`packages.x86_64`**, what gets installed into the live system.
+2. **`airootfs/`**, how the live system behaves: autologin, networking, sudo, the installer, live-only scripts.
+3. **`profiledef.sh` plus the bootloader directories**, what the ISO is called and how it boots.
+
+Everything else builds on those three. The section in reading order:
+
+<CardGrid cols={3}>
+  <Card title="Archiso fundamentals" href="/iso/archiso-fundamentals/">
+    What archiso and mkarchiso are, how a build proceeds phase by phase, and the build and boot modes Parch uses.
+  </Card>
+  <Card title="Profile structure" href="/iso/profile-structure/">
+    Every file and directory in a profile repository, plus a full profiledef.sh reference.
+  </Card>
+  <Card title="Build your first ISO" href="/iso/build-first-iso/">
+    End-to-end tutorial: prerequisites, cloning parch-iso-template, building, and booting the result in QEMU.
+  </Card>
+  <Card title="Package lists" href="/iso/packages-x86_64/">
+    How packages.x86_64 and bootstrap_packages.x86_64 work, how the world repository is wired in, and kernel flavors.
+  </Card>
+  <Card title="airootfs customization" href="/iso/airootfs-customization/">
+    The live-system overlay: autologin, systemd-networkd, sudoers, pacman hooks, and live-only scripts.
+  </Card>
+  <Card title="Bootloader configuration" href="/iso/bootloader-config/">
+    Syslinux for BIOS, systemd-boot for UEFI, GRUB in between, and the kernel command line.
+  </Card>
+  <Card title="Desktop profiles" href="/iso/desktop-profiles/">
+    How the Plasma, GNOME, Xfce, Hyprland, and smaller editions differ, and what to change for a new desktop.
+  </Card>
+  <Card title="Calamares installer" href="/iso/calamares-installer/">
+    The YAML configuration under /etc/calamares, Parch branding, module defaults, and debugging.
+  </Card>
+  <Card title="Testing an ISO" href="/iso/testing-iso/">
+    QEMU/KVM on both firmwares, a real-hardware checklist, installer testing, and debugging boot failures.
+  </Card>
+  <Card title="Release automation" href="/iso/release-automation/">
+    The build.yaml CI pipeline: release-triggered builds, the test channel, 7z volumes, and checksums.
+  </Card>
+  <Card title="Custom edition tutorial" href="/iso/custom-edition-tutorial/">
+    A complete worked example: fork parch-iso-template, rename it, curate packages, add customizations, build, and test.
+  </Card>
+</CardGrid>
+
+## Where this fits in the portal
+
+- Set up the build host first, see [Set up your workstation](/start/workstation-setup/).
+- ISOs only install what exists in a repository. To add your own software to an edition, package it first, see [Packaging](/packaging/).
+- The **world** repository that ISO builds pull Parch packages from is documented alongside the repo tooling in [Packaging](/packaging/).

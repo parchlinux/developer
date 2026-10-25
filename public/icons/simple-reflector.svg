@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="refG" x1="64" y1="8" x2="64" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#21c796"/>
+      <stop offset="0.55" stop-color="#0385ce"/>
+      <stop offset="1" stop-color="#0d40bf"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#refG)"/>
+  <!-- mirror disc -->
+  <circle cx="64" cy="64" r="33" fill="white" fill-opacity="0.12"/>
+  <circle cx="64" cy="64" r="33" fill="none" stroke="white" stroke-width="5.5"/>
+  <!-- glint streak (top-right) -->
+  <path d="M50 46 A24 24 0 0 1 74 42" fill="none" stroke="white" stroke-width="6" stroke-linecap="round"/>
+  <!-- ping sweep (bottom-left signal) -->
+  <path d="M64 64 L46 78" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+  <path d="M64 64 L40 64" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.35"/>
+</svg>

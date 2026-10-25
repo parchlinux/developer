@@ -1,0 +1,65 @@
+---
+title: "Debugging & profiling"
+description: "Finding out why an app or system misbehaves, on Wayland and off."
+order: 8
+---
+
+# Debugging & profiling
+
+## GUI apps on Wayland
+
+```bash
+# GTK: enable interaction and logging
+$ GDK_DEBUG=all GTK_DEBUG=interactive ./parch-hello
+
+# Qt: category logging
+$ QT_LOGGING_RULES="qt.waylandclient.debug=true" ./myapp
+
+# Raw Wayland protocol trace (heavy; use for window/surface issues)
+$ WAYLAND_DEBUG=1 ./myapp 2> wayland.log
+```
+
+The GTK inspector (`GTK_DEBUG=interactive`) shows the widget tree, style
+classes, and accessibility roles at runtime; it is the fastest way to see
+why a widget is not themed or not announced to screen readers.
+
+## Crashes
+
+```bash
+$ coredumpctl list                  # what crashed, when
+$ coredumpctl info <pid>            # backtrace
+$ coredumpctl gdb <pid>             # into gdb with the core loaded
+```
+
+Debug symbols come from the `*-debug` packages (`debuginfod` is configured
+by default on Arch-based systems; `DEBUGINFOD_URLS` covers Arch repos).
+
+## Performance
+
+```bash
+$ perf record -g ./app && perf report     # CPU profiles
+$ valgrind --tool=massif ./app            # heap growth over time
+$ heaptrack ./app                          # allocation hotspots (GUI friendlier)
+```
+
+Budgets and the methodology are in [performance & hardware](/testing/performance-hardware/).
+
+## System-level debugging
+
+```bash
+$ journalctl -b -p err               # this boot's errors, all services
+$ journalctl -u <unit> -f            # follow a unit
+$ systemctl --failed                 # failed units, first stop after boot issues
+$ systemd-analyze blame              # slow boot units
+```
+
+For live-environment problems, boot with the ISO's debug options (see
+[testing an ISO](/iso/testing-iso/)) and capture the journal before
+removing media.
+
+## Reporting bugs that get fixed
+
+A report with the exact command, the full output, the package versions,
+and (for GUI issues) a Wayland/X11 note and the desktop edition gets fixed.
+A report saying "it does not work" gets questions. Capture first, describe
+second.

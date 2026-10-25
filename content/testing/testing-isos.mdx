@@ -1,0 +1,70 @@
+---
+title: "Testing ISOs"
+description: "The ISO release test plan: boot, installer, post-install, and hardware."
+order: 3
+source: "ch. 17, 19, 42"
+---
+
+# Testing ISOs
+
+The command-level guide lives in [Testing an ISO](/iso/testing-iso/). This
+page is the **release test plan**: what must pass before a stable tag.
+
+## Pre-flight
+
+```text
+[ ] Build from clean checkout           sudo ./build.sh (or mkarchiso -v iso/)
+[ ] Output present                      out/*.iso + checksums (md5sums.txt)
+[ ] Size sane                           desktop editions fit a DVD (<= 4.7 GB)
+[ ] Boot media written                  USB with dd or Ventoy verified
+```
+
+## Boot matrix
+
+Every edition release boots in all four combinations before tagging:
+
+```text
+[ ] QEMU BIOS   qemu-system-x86_64 -m 4G -display gtk -cdrom out/*.iso
+[ ] QEMU UEFI   (with OVMF firmware) -bios /usr/share/ovmf/x64/OVMF_CODE.fd
+[ ] Real hardware, BIOS mode
+[ ] Real hardware, UEFI mode (incl. Secure Boot off)
+```
+
+In each: live session starts, autologin reaches the desktop, network comes
+up (networkd DHCP), audio is unmuted, and the installer icon is present.
+
+## Installer pass
+
+```text
+[ ] Auto partitioning install completes (erase disk, ext4)
+[ ] Manual partitioning completes (custom /, /home, ESP)
+[ ] Btrfs path completes with the Parch preset (zstd compression)
+[ ] Locale selection: fa_IR and en_US both produce working systems
+[ ] User creation lands in wheel; sudo works after first boot
+[ ] Reboot without media lands in the installed system
+```
+
+## Post-install validation
+
+```text
+[ ] First boot reaches the desktop (SDDM or GDM themed)
+[ ] pacman -Syu completes from the fresh install
+[ ] world repo reachable: pacman -Sl world non-empty
+[ ] Persian fonts render (Estedad visible in any Persian text)
+[ ] Kernel and firmware installed (uname -r, dmesg clean of microcode errors)
+[ ] Shutdown and reboot cleanly
+```
+
+## Regression watch
+
+Compare against the previous release on the same hardware: boot time (note
+it), memory at idle (free -m after boot), and the failure list from the
+last release's notes. A release that fixes one thing and quietly breaks
+another is worse than a delayed release.
+
+## When a check fails
+
+Failures on the boot or installer matrix block the release. Fix forward in
+the profile, rebuild, and restart the matrix from the top (a fix late in
+the chain can invalidate earlier steps). Document the failure and the fix
+in the release notes; test plans that hide failures get repeated failures.

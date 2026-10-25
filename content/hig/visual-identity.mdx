@@ -1,0 +1,70 @@
+---
+title: "Visual identity & color"
+description: "Brand colors, semantic tokens, and how interfaces stay calm in both themes."
+order: 2
+---
+
+
+# Visual identity & color
+
+## The palette
+
+Parch's identity is a teal→blue gradient with a purple secondary accent,
+defined once in the [design tokens](/design/tokens/). Interfaces use it
+sparingly: brand moments (logo, heroes, onboarding) may use the gradient;
+product UI uses the semantic tokens.
+
+<div className="grid gap-3 sm:grid-cols-3">
+  <Swatch name="Brand teal" cssVar="--color-brand-teal" fallback="oklch(0.7115 0.131 174.2)" />
+  <Swatch name="Brand blue" cssVar="--color-brand-blue" fallback="oklch(0.6325 0.1882 253.02)" />
+  <Swatch name="Brand purple" cssVar="--color-brand-purple" fallback="oklch(0.5548 0.2951 300.6688)" />
+</div>
+
+## Semantic roles
+
+Color communicates role, never decoration:
+
+<Checklist>
+  - **Accent (teal)**, primary actions, selection, focus rings, active
+    navigation. One accent action per view.
+  - **Info (blue)**, neutral information and in-progress states.
+  - **Success (green)**, completed operations and healthy states.
+  - **Warning (amber)**, attention needed but recoverable.
+  - **Danger (red)**, destructive actions and failures only. Red is never
+    decorative.
+</Checklist>
+
+## Dark theme
+
+Dark is a first-class theme, not an inverted one: surfaces get *lighter* with
+elevation (background → surface → surface-2), brand colors brighten to keep
+contrast, and shadows give way to borders and subtle surface shifts.
+
+<Checklist>
+  - Never hardcode hex values; use semantic tokens so both themes work.
+  - Test every screen in both themes before shipping (the design-system demos
+    have a built-in switch for exactly this).
+  - Respect the system theme by default; offer an in-app override only when
+    the app is fullscreen for long sessions (video, terminal).
+</Checklist>
+
+<DoDont
+  do_={{
+    children: (
+      <div className="space-y-2">
+        <div className="rounded-lg bg-surface p-3 text-[0.82rem] text-text">surface card</div>
+        <div className="rounded-lg bg-surface-2 p-3 text-[0.82rem] text-text">elevated surface-2 card</div>
+      </div>
+    ),
+    caption: "Elevation reads through lighter surfaces and hairlines.",
+  }}
+  dont={{
+    children: (
+      <div className="space-y-2">
+        <div className="rounded-lg bg-surface p-3 text-[0.82rem] text-white" style={{ boxShadow: "0 0 18px rgba(255,255,255,0.35)" }}>glowing card</div>
+        <div className="rounded-lg p-3 text-[0.82rem] text-black" style={{ background: "#0d84d4" }}>brand-blue filler</div>
+      </div>
+    ),
+    caption: "Glows and saturated brand fills as surfaces, noise in dark mode.",
+  }}
+/>

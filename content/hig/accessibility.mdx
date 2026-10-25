@@ -1,0 +1,49 @@
+---
+title: "Accessibility"
+description: "Contrast, focus, screen readers, and input flexibility, the non-negotiables."
+order: 10
+---
+
+# Accessibility
+
+Accessibility is an acceptance criterion in Parch, not a polish phase.
+
+## Contrast
+
+<Checklist>
+  - Body text: ≥ 4.5:1 against its background, in both themes.
+  - Large text (≥ 24px or ≥ 19px bold): ≥ 3:1.
+  - UI component boundaries and focus indicators: ≥ 3:1.
+  - Color never carries meaning alone, pair status colors with icons or
+    labels (a red “Failed” chip also says “Failed”).
+</Checklist>
+
+## Keyboard & focus
+
+- Every interactive element is reachable with <kbd>Tab</kbd> and operable
+  with <kbd>Enter</kbd>/<kbd>Space</kbd>; focus order follows visual order.
+- Focus is always visible (2px accent ring); never `outline: none` without a
+  replacement.
+- Dialogs trap focus while open and return it on close.
+- See [Keyboard interaction](/hig/keyboard/) for shortcut conventions.
+
+## Screen readers
+
+- All controls expose name, role, and value through the toolkit's
+  accessibility bridge (GTK: ATK/AT-SPI; Qt: QAccessible).
+- Images that convey information get alt text; decorative images get none.
+- Live regions announce progress completion and toasts; nothing important
+  appears only visually.
+
+## Input flexibility
+
+- Hit targets ≥ 32px with ≥ 8px gaps; 44px on touch-first surfaces.
+- No interaction depends on hover alone or on precise pointing.
+- Respect the system's reduced-motion and reduced-transparency settings.
+
+## Testing baseline
+
+1. Keyboard-only pass of every flow.
+2. Both themes with contrast checked on real content.
+3. Orca (or the platform screen reader) over the primary flows.
+4. 200% font-size scaling without clipping.

@@ -1,0 +1,46 @@
+---
+title: "Localization & Accessibility"
+description: "The full workflow for making Parch software work for international users."
+index: true
+order: 0
+---
+
+# Localization & Accessibility
+
+Parch serves a bilingual audience: Persian speakers first, everyone else
+second, in that order of priority. This section documents the translation
+systems, formats, and testing that make software work in both, plus the
+accessibility baseline that applies everywhere.
+
+<CardGrid>
+  <Card title="Translation workflow" href="/localization/translation-workflow/">
+    Gettext end to end: extraction, catalogs, plural rules, and tooling.
+  </Card>
+  <Card title="Persian & RTL specifics" href="/localization/persian-rtl/">
+    Numerals, typography, mixed direction, and locale defaults.
+  </Card>
+  <Card title="Testing l10n & a11y" href="/localization/testing-l10n-a11y/">
+    How to prove a build is translatable and accessible before release.
+  </Card>
+</CardGrid>
+
+## The contract
+
+<Checklist>
+  - Persian translations ship **at release time** for first-party apps;
+    English is the source, Persian is not a later add-on.
+  - Every user-visible string goes through gettext (or the toolkit
+    equivalent) from the first commit.
+  - RTL readiness is a layout property, not a translation property (see
+    [RTL & Persian in the HIG](/hig/rtl-and-persian/)).
+  - Accessibility (keyboard completeness, accessible names, contrast) is a
+    release blocker; see the [HIG accessibility rules](/hig/accessibility/).
+</Checklist>
+
+## Architecture that scales beyond two languages
+
+The tooling here (gettext catalogs, per-app translation domains, desktop
+entries with `[fa]` keys) is language-agnostic. Adding Arabic, Azerbaijani,
+or any LTR locale later means adding a translation file, not changing
+architecture. Design decisions that would not survive a third language
+(hardcoded fonts, direction assumptions, string concatenation) are bugs.

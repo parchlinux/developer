@@ -1,0 +1,117 @@
+---
+title: "What Parch adds to Arch"
+description: "The concrete software, infrastructure, and engineering Parch builds on top of Arch, with receipts."
+order: 2
+status: stable
+---
+
+# What Parch adds to Arch
+
+Arch-based distributions are often described as "just Arch with some
+configuration". This page answers that description the only way that
+matters: with an inventory of what Parch actually ships, held to a simple
+standard, every claim links to a repository you can read.
+
+## The claim, precisely
+
+What that description gets right: Parch does not fork the kernel, does not
+rebuild pacman, and does not maintain its own core repositories. That is a
+deliberate choice, and it is what makes Parch useful: users keep the Arch
+package ecosystem, the AUR, and the wiki.
+
+What it misses: **configuration is not what Parch ships**. A configured
+Arch is a dotfiles repo. Parch maintains compiled software, automated build
+infrastructure, and original applications. Here is the inventory.
+
+## 1. First-party applications (original software)
+
+Not themes, not config files: applications written for Parch, in Rust,
+Python, C++, and Zig, with their own releases.
+
+| Application | What it does | Language | Repository |
+|---|---|---|---|
+| Pastor | The Parch Store: package browsing and management GUI | Rust | [parchlinux/pastor](https://github.com/parchlinux/pastor) |
+| Parch Welcome | First-run assistant for new installs | Rust + libadwaita | [parchlinux/parch-welcome](https://github.com/parchlinux/parch-welcome) |
+| parch-update | Update notifier and applier with a systray applet | Shell | [parchlinux/parch-update](https://github.com/parchlinux/parch-update) |
+| Parch Kernel Manager | Browse, install, and remove kernels with live pacman output | Python + GTK4 | [parchlinux/PKM](https://github.com/parchlinux/PKM) |
+| MirrorMan | Mirror ranking and switching | Rust | [parchlinux/mirrorman](https://github.com/parchlinux/mirrorman) |
+| Parch Driver Manager | Vendor driver detection and installation | Python | [parchlinux/Parch-Driver-Manager](https://github.com/parchlinux/Parch-Driver-Manager) |
+| plasma-setup | Plasma first-run setup tool | C++ | [parchlinux/plasma-setup](https://github.com/parchlinux/plasma-setup) |
+| archinstall-rs | New-generation TUI installer with partitioning and LUKS | Rust | [parchlinux/archinstall-rs](https://github.com/parchlinux/archinstall-rs) |
+| parchprobe | Hardware probe for bug reports | Zig | [parchlinux/parchprobe](https://github.com/parchlinux/parchprobe) |
+| systuner | System tuning tool | C | [parchlinux/systuner](https://github.com/parchlinux/systuner) |
+| GameHub / Pordle / Parchdroid | Gaming toolkit, Persian word game, Android integration | Rust / Python | see the [organization](https://github.com/parchlinux) |
+
+A configured Arch ships none of these. Writing them is the majority of the
+Parch team's engineering time.
+
+## 2. Infrastructure, not configuration
+
+**The world repository is built software.** Packages do not appear by
+copying files: PKGBUILDs live in version control, builds are validated with
+namcap and clean chroots, binaries land in the
+[Void](https://github.com/parchlinux/Void) testing repository, and
+[auto-gen.py](https://github.com/parchlinux/world) regenerates the sync
+databases. It is a package-repository pipeline with review and promotion,
+maintained as infrastructure (see
+[repository infrastructure](/distribution/repository-infrastructure/)).
+
+**The ISO build system is patched upstream code.** Parch maintains a
+patched archiso (the `archiso` package in world) and a per-edition profile
+system: eleven edition repositories, each with its own package manifests,
+airootfs overlays, and bootloader configuration (see
+[ISO composition](/architecture/iso-composition/)). Release automation
+builds every edition per release tag and ships pre-releases to the test
+mirror (see [release automation](/iso/release-automation/)).
+
+**The installer is maintained software.** The Parch Calamares flavor
+([calamares-parch](https://github.com/parchlinux/calamares-parch))
+carries branding, module configuration, and partitioning presets, packaged
+with a patched Calamares. Parch-defaulted installers are why a fresh
+install speaks Persian from the first frame (see
+[installer development](/distribution/installer-development/)).
+
+## 3. Localization engineering
+
+Persian support in Parch is not a font swap:
+
+- Font packaging maintained in-repo (`parch-persian-fonts`, `arad-fonts`)
+- RTL-tested login, boot splash, and bootloader themes (`parch-sddm`,
+  `parch-grub-theme`, `parch-plymouth`)
+- fa_IR defaults flowing through installer, live environment, and desktop
+- A [documented HIG](/hig/rtl-and-persian/) requiring RTL correctness from
+  first-party applications
+
+## 4. Design and documentation engineering
+
+The thing you are reading is part of the answer: a
+[Human Interface Guidelines](/hig/) specification, an implemented
+[design system](/design/), release test plans
+([testing](/testing/)), and this portal's own build and review pipeline.
+None of that is configuration; it is the engineering process that turns a
+configured Arch into a maintainable distribution.
+
+## The honest comparison
+
+| If Parch were "just config", you would find | What you actually find |
+|---|---|
+| A dotfiles repo | 154 repositories: applications, installers, build tooling, repos |
+| Hand-edited pacman.conf | An auto-generated binary repository with testing promotion |
+| A wallpaper pack | Original Rust/GTK applications with their own release cycles |
+| A Calamares settings tweak | A patched installer stack plus a from-scratch Rust installer |
+| Nothing to review | RFCs, package review, CI-gated ISO releases, and this handbook |
+
+## Why building on Arch is the point
+
+Using Arch as the base is not lazy; it is the product decision. It gives
+Parch users the entire Arch package ecosystem, the AUR, and upstream
+documentation, while the Parch layer concentrates effort where a
+distribution differentiates: installer experience, first-party software,
+Persian-language engineering, and release quality. The same reasoning
+upstream projects apply when they integrate rather than fork.
+
+<Callout kind="tip" title="Disagree? Point at the code">
+  Every repository linked above is public. If a claim here is wrong, the
+  fix is a pull request to this portal; that is how the whole handbook
+  works.
+</Callout>

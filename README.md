@@ -56,8 +56,8 @@ Two GitHub Actions workflows ship with the repository:
 - **`.github/workflows/ci.yml`** — on every push/PR: install, content
   validation, full build (including the Pagefind index), and link checking.
 - **`.github/workflows/docker-publish.yml`** — on pushes to `main`, on
-  `v*` tags, and via manual dispatch: builds the multi-arch image
-  (`linux/amd64` + `linux/arm64`) and publishes it to GHCR under
+  `v*` tags, and via manual dispatch: builds the `linux/amd64` image and
+  publishes it to GHCR under
   `ghcr.io/<owner>/<repo>` with `latest` (default branch), semver tags
   from `v*` releases, and a short-SHA tag. Uses the built-in
   `GITHUB_TOKEN`; no extra secrets needed.
